@@ -287,7 +287,7 @@ def main():
                 save_current_session(st.session_state.session_key)
                 st.rerun()
 
-        st.subheader("Commandes")
+            st.subheader("Commandes")
             edited_df = st.data_editor(st.session_state.checklist, num_rows="dynamic", use_container_width=True)
             st.session_state.checklist = edited_df
             save_current_session(st.session_state.session_key)
