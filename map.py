@@ -3,6 +3,9 @@ import pandas as pd
 import math
 import json
 import os
+import base64
+from weasyprint import HTML
+import markdown
 
 PRODUCT_DATABASE_PATH = 'product_database.json'
 GENERAL_TODOS_PATH = 'general_todos.json'
@@ -93,6 +96,11 @@ def generate_printable_checklist():
     
     return markdown_content
 
+def markdown_to_pdf_base64(markdown_content):
+    html = markdown.markdown(markdown_content)
+    pdf = HTML(string=html).write_pdf()
+    return base64.b64encode(pdf).decode('utf-8')
+
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
     
@@ -124,16 +132,29 @@ def render_checklist():
             
             st.markdown("---")
 
-    if st.button("Générer la version imprimable"):
-        printable_checklist = generate_printable_checklist()
-        st.markdown("### Version imprimable de la checklist")
-        st.markdown(printable_checklist)
-        st.download_button(
-            label="Télécharger la checklist en Markdown",
-            data=printable_checklist,
-            file_name=f"checklist_{st.session_state.session_key}.md",
-            mime="text/markdown",
-        )
+    if st.button("Imprimer la checklist"):
+        markdown_content = generate_printable_checklist()
+        pdf_base64 = markdown_to_pdf_base64(markdown_content)
+        js = f"""
+        <script>
+        var pdf_base64 = "{pdf_base64}";
+        var binary = atob(pdf_base64);
+        var len = binary.length;
+        var buffer = new ArrayBuffer(len);
+        var view = new Uint8Array(buffer);
+        for (var i = 0; i < len; i++) {{
+            view[i] = binary.charCodeAt(i);
+        }}
+        var blob = new Blob([view], {{ type: "application/pdf" }});
+        var url = URL.createObjectURL(blob);
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        iframe.contentWindow.print();
+        </script>
+        """
+        st.components.v1.html(js, height=0)
 
 def manage_products():
     st.subheader("Gestion des Produits")
