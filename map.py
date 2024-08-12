@@ -5,37 +5,32 @@ import json
 import os
 
 PRODUCT_DATABASE_PATH = 'product_database.json'
+GENERAL_TODOS_PATH = 'general_todos.json'
 
-def load_product_database():
-    if os.path.exists(PRODUCT_DATABASE_PATH):
-        with open(PRODUCT_DATABASE_PATH, 'r') as f:
+def load_json(filepath):
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
             return json.load(f)
     return {}
 
-def save_product_database(data):
-    with open(PRODUCT_DATABASE_PATH, 'w') as f:
-        json.dump(data, f)
-
-def load_state(filename):
-    if os.path.exists(filename):
-        with open(filename, 'r') as f:
-            return json.load(f)
-    return {"checklist": []}
-
-def save_state(filename, data):
-    with open(filename, 'w') as f:
+def save_json(filepath, data):
+    with open(filepath, 'w') as f:
         json.dump(data, f)
 
 def init_session(session_key):
     if 'products' not in st.session_state:
-        st.session_state.products = load_product_database()
+        st.session_state.products = load_json(PRODUCT_DATABASE_PATH)
     if 'checklist' not in st.session_state:
-        session_data = load_state(f'{session_key}_session.json')
+        session_data = load_json(f'{session_key}_session.json')
         st.session_state.checklist = pd.DataFrame(session_data.get('checklist', []), columns=['Produit', 'Quantité'])
+    if 'general_todos' not in st.session_state:
+        st.session_state.general_todos = load_json(GENERAL_TODOS_PATH).get('todos', [])
 
 def save_current_session(session_key):
     session_data = {'checklist': st.session_state.checklist.to_dict(orient='records')}
-    save_state(f'{session_key}_session.json', session_data)
+    save_json(f'{session_key}_session.json', session_data)
+    save_json(PRODUCT_DATABASE_PATH, st.session_state.products)
+    save_json(GENERAL_TODOS_PATH, {'todos': st.session_state.general_todos})
 
 def set_theme(day):
     themes = {
@@ -55,6 +50,17 @@ def calculate_needed_items(product, quantity):
 
 def render_checklist():
     st.markdown("### 📋 Checklist - Mise en place")
+    
+    # Render general todos
+    st.markdown("#### Tâches Générales")
+    for todo in st.session_state.general_todos:
+        if todo['active']:
+            todo_key = f"general_todo_{todo['task']}"
+            todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
+    
+    st.markdown("---")
+
+    # Render product-specific items
     for _, row in st.session_state.checklist.iterrows():
         product, quantity = row['Produit'], row['Quantité']
         if product in st.session_state.products:
@@ -75,7 +81,6 @@ def render_checklist():
                         prod_item['subtasks'] = item['subtasks']
             
             st.markdown("---")
-    save_product_database(st.session_state.products)
 
 def manage_products():
     with st.expander("Gestion des Produits"):
@@ -87,7 +92,6 @@ def manage_products():
             new_product = st.text_input("Entrez le nom du nouveau produit:")
             if st.button("Ajouter le produit") and new_product and new_product not in st.session_state.products:
                 st.session_state.products[new_product] = {"items": []}
-                save_product_database(st.session_state.products)
                 st.success(f"Ajouté {new_product}")
                 st.rerun()
 
@@ -103,7 +107,6 @@ def manage_products():
                 with col3:
                     if st.button("Supprimer l'élément", key=f"remove_item_{i}"):
                         st.session_state.products[product_to_edit]["items"].pop(i)
-                        save_product_database(st.session_state.products)
                         st.rerun()
                 
                 st.write("Sous-tâches:")
@@ -114,13 +117,11 @@ def manage_products():
                     with col2:
                         if st.button("Supprimer la sous-tâche", key=f"remove_subtask_{i}_{j}"):
                             item["subtasks"].pop(j)
-                            save_product_database(st.session_state.products)
                             st.rerun()
                 
                 new_subtask = st.text_input(f"Nouvelle sous-tâche pour {item['name']}", key=f"new_subtask_{i}")
                 if st.button(f"Ajouter une sous-tâche à {item['name']}", key=f"add_subtask_{i}") and new_subtask:
                     item["subtasks"].append({"name": new_subtask, "done": False})
-                    save_product_database(st.session_state.products)
                     st.success(f"Sous-tâche '{new_subtask}' ajoutée à {item['name']}")
                     st.rerun()
                 
@@ -141,7 +142,6 @@ def manage_products():
                     "subtasks": [], 
                     "done": False
                 })
-                save_product_database(st.session_state.products)
                 st.success(f"Ajouté {new_item_name} à {product_to_edit}")
                 st.rerun()
 
@@ -156,9 +156,29 @@ def duplicate_product():
                 st.error(f"Un produit nommé '{new_product_name}' existe déjà.")
             else:
                 st.session_state.products[new_product_name] = st.session_state.products[product_to_duplicate].copy()
-                save_product_database(st.session_state.products)
                 st.success(f"Dupliqué '{product_to_duplicate}' en '{new_product_name}'")
                 st.rerun()
+
+def manage_general_todos():
+    with st.expander("Gestion des Tâches Générales"):
+        st.markdown("### 📝 Tâches Générales")
+        
+        for i, todo in enumerate(st.session_state.general_todos):
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.session_state.general_todos[i]['task'] = st.text_input(f"Tâche {i+1}", todo['task'], key=f"general_todo_{i}")
+            with col2:
+                st.session_state.general_todos[i]['active'] = st.checkbox("Actif", todo['active'], key=f"general_todo_active_{i}")
+            with col3:
+                if st.button("Supprimer", key=f"remove_general_todo_{i}"):
+                    st.session_state.general_todos.pop(i)
+                    st.rerun()
+        
+        new_todo = st.text_input("Nouvelle tâche générale")
+        if st.button("Ajouter une tâche générale") and new_todo:
+            st.session_state.general_todos.append({'task': new_todo, 'active': True})
+            st.success(f"Tâche '{new_todo}' ajoutée")
+            st.rerun()
 
 def main():
     st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
@@ -199,6 +219,9 @@ def main():
     render_checklist()
     manage_products()
     duplicate_product()
+    manage_general_todos()
+
+    save_current_session(st.session_state.session_key)
 
 if __name__ == "__main__":
     main()
