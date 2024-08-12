@@ -46,7 +46,7 @@ def calculate_needed_items(product, quantity):
         "name": item['name'],
         "count": math.ceil(quantity / item["capacity"]),
         "subtasks": item["subtasks"],
-        "done": item["done"]
+        "done": item.get("done", False)
     } for item in items]
 
 def manage_general_todos():
@@ -54,19 +54,17 @@ def manage_general_todos():
     
     new_todo = st.text_input("Nouvelle tâche générale")
     if st.button("Ajouter une tâche générale") and new_todo:
-        st.session_state.general_todos.append({'task': new_todo, 'active': True, 'done': False})
+        st.session_state.general_todos.append({'task': new_todo, 'active': True})
         st.success(f"Tâche '{new_todo}' ajoutée")
         st.rerun()
 
     for i, todo in enumerate(st.session_state.general_todos):
-        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+        col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
             st.session_state.general_todos[i]['task'] = st.text_input(f"Tâche {i+1}", todo['task'], key=f"general_todo_{i}")
         with col2:
             st.session_state.general_todos[i]['active'] = st.checkbox("Actif", todo['active'], key=f"general_todo_active_{i}")
         with col3:
-            st.session_state.general_todos[i]['done'] = st.checkbox("Fait", todo.get('done', False), key=f"general_todo_done_{i}")
-        with col4:
             if st.button("Supprimer", key=f"remove_general_todo_{i}"):
                 st.session_state.general_todos.pop(i)
                 st.rerun()
@@ -197,7 +195,7 @@ def manage_products():
                 "name": new_name, 
                 "capacity": new_capacity, 
                 "subtasks": item["subtasks"], 
-                "done": item["done"]
+                "done": item.get("done", False)
             }
             st.markdown("---")
         
