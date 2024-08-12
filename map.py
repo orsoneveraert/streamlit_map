@@ -287,4 +287,22 @@ def main():
                 save_current_session(st.session_state.session_key)
                 st.rerun()
 
-            st.subheader("Comm
+           st.subheader("Commandes")
+            edited_df = st.data_editor(st.session_state.checklist, num_rows="dynamic", use_container_width=True)
+            st.session_state.checklist = edited_df
+            save_current_session(st.session_state.session_key)
+
+        elif menu_choice == "Gestion des Tâches Générales":
+            manage_general_todos()
+
+        elif menu_choice == "Gestion des Produits":
+            manage_products()
+
+        elif menu_choice == "Dupliquer le Produit":
+            duplicate_product()
+
+    render_checklist()
+    save_current_session(st.session_state.session_key)
+
+if __name__ == "__main__":
+    main()
