@@ -70,6 +70,29 @@ def manage_general_todos():
                 st.session_state.general_todos.pop(i)
                 st.rerun()
 
+def generate_printable_checklist():
+    markdown_content = f"# Checklist - {st.session_state.session_key}\n\n"
+    
+    markdown_content += "## Tâches Générales\n\n"
+    for todo in st.session_state.general_todos:
+        if todo['active']:
+            markdown_content += f"- [ ] {todo['task']}\n"
+    
+    markdown_content += "\n## Tâches Spécifiques aux Produits\n\n"
+    for _, row in st.session_state.checklist.iterrows():
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            items_needed = calculate_needed_items(product, quantity)
+            rounded_quantity = math.ceil(quantity)
+            markdown_content += f"### {product} ({rounded_quantity})\n\n"
+            for item in items_needed:
+                markdown_content += f"- [ ] {item['count']} {item['name']}\n"
+                for subtask in item['subtasks']:
+                    markdown_content += f"  - [ ] {subtask['name']}\n"
+            markdown_content += "\n"
+    
+    return markdown_content
+
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
     
@@ -100,6 +123,17 @@ def render_checklist():
                         prod_item['subtasks'] = item['subtasks']
             
             st.markdown("---")
+
+    if st.button("Générer la version imprimable"):
+        printable_checklist = generate_printable_checklist()
+        st.markdown("### Version imprimable de la checklist")
+        st.markdown(printable_checklist)
+        st.download_button(
+            label="Télécharger la checklist en Markdown",
+            data=printable_checklist,
+            file_name=f"checklist_{st.session_state.session_key}.md",
+            mime="text/markdown",
+        )
 
 def manage_products():
     st.subheader("Gestion des Produits")
