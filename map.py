@@ -113,7 +113,38 @@ def generate_pdf_checklist():
 
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
-    
+
+    # Calculate total tasks and completed tasks
+    total_tasks = 0
+    completed_tasks = 0
+
+    # Count general todos
+    for todo in st.session_state.general_todos:
+        if todo['active']:
+            total_tasks += 1
+            if todo.get('done', False):
+                completed_tasks += 1
+
+    # Count product-specific tasks
+    for _, row in st.session_state.checklist.iterrows():
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            items_needed = calculate_needed_items(product, quantity)
+            for item in items_needed:
+                total_tasks += 1
+                if item.get('done', False):
+                    completed_tasks += 1
+                for subtask in item['subtasks']:
+                    total_tasks += 1
+                    if subtask.get('done', False):
+                        completed_tasks += 1
+
+    # Display progress
+    st.subheader("Progression")
+    progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    st.progress(progress_percentage / 100)
+    st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
+
     st.subheader("Tâches Générales")
     for todo in st.session_state.general_todos:
         if todo['active']:
@@ -256,22 +287,4 @@ def main():
                 save_current_session(st.session_state.session_key)
                 st.rerun()
 
-            st.subheader("Commandes")
-            edited_df = st.data_editor(st.session_state.checklist, num_rows="dynamic", use_container_width=True)
-            st.session_state.checklist = edited_df
-            save_current_session(st.session_state.session_key)
-
-        elif menu_choice == "Gestion des Tâches Générales":
-            manage_general_todos()
-
-        elif menu_choice == "Gestion des Produits":
-            manage_products()
-
-        elif menu_choice == "Dupliquer le Produit":
-            duplicate_product()
-
-    render_checklist()
-    save_current_session(st.session_state.session_key)
-
-if __name__ == "__main__":
-    main()
+            st.subheader("Comm
