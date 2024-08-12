@@ -3,7 +3,6 @@ import pandas as pd
 import math
 import json
 import os
-from streamlit_extras.app_logo import add_logo
 
 PRODUCT_DATABASE_PATH = 'product_database.json'
 GENERAL_TODOS_PATH = 'general_todos.json'
@@ -193,7 +192,11 @@ def main():
     st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 
     # Add logo to the sidebar
-    add_logo("https://mazette.brussels/wp-content/uploads/2021/03/MAZETTE_LogoBlack_Full-MD.png")  # Replace with your logo URL
+    st.logo(
+        LOGO_URL_LARGE,
+        link="https://mazette.brussels/wp-content/uploads/2021/03/MAZETTE_LogoBlack_Full-MD.png",
+        icon_image=LOGO_URL_SMALL,
+    )
     
     if 'session_key' not in st.session_state:
         st.session_state.session_key = "LUNDI"
