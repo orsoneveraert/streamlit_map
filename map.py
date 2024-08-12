@@ -190,13 +190,6 @@ def duplicate_product():
 
 def main():
     st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
-
-    # Add logo to the sidebar
-    st.logo(
-        LOGO_URL_LARGE,
-        link="https://mazette.brussels/wp-content/uploads/2021/03/MAZETTE_LogoBlack_Full-MD.png",
-        icon_image=LOGO_URL_SMALL,
-    )
     
     if 'session_key' not in st.session_state:
         st.session_state.session_key = "LUNDI"
