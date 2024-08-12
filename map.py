@@ -3,9 +3,7 @@ import pandas as pd
 import math
 import json
 import os
-import base64
-from weasyprint import HTML
-import markdown
+from fpdf import FPDF
 
 PRODUCT_DATABASE_PATH = 'product_database.json'
 GENERAL_TODOS_PATH = 'general_todos.json'
@@ -73,33 +71,47 @@ def manage_general_todos():
                 st.session_state.general_todos.pop(i)
                 st.rerun()
 
-def generate_printable_checklist():
-    markdown_content = f"# Checklist - {st.session_state.session_key}\n\n"
+def generate_pdf_checklist():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
     
-    markdown_content += "## Tâches Générales\n\n"
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, f"Checklist - {st.session_state.session_key}", 0, 1, 'C')
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Tâches Générales", 0, 1)
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", size=12)
     for todo in st.session_state.general_todos:
         if todo['active']:
-            markdown_content += f"- [ ] {todo['task']}\n"
+            pdf.cell(0, 10, f"[ ] {todo['task']}", 0, 1)
+    pdf.ln(10)
     
-    markdown_content += "\n## Tâches Spécifiques aux Produits\n\n"
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Tâches Spécifiques aux Produits", 0, 1)
+    pdf.ln(5)
+    
     for _, row in st.session_state.checklist.iterrows():
         product, quantity = row['Produit'], row['Quantité']
         if product in st.session_state.products:
             items_needed = calculate_needed_items(product, quantity)
             rounded_quantity = math.ceil(quantity)
-            markdown_content += f"### {product} ({rounded_quantity})\n\n"
+            
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(0, 10, f"{product} ({rounded_quantity})", 0, 1)
+            
+            pdf.set_font("Arial", size=12)
             for item in items_needed:
-                markdown_content += f"- [ ] {item['count']} {item['name']}\n"
+                pdf.cell(0, 10, f"[ ] {item['count']} {item['name']}", 0, 1)
                 for subtask in item['subtasks']:
-                    markdown_content += f"  - [ ] {subtask['name']}\n"
-            markdown_content += "\n"
+                    pdf.cell(10)
+                    pdf.cell(0, 10, f"[ ] {subtask['name']}", 0, 1)
+            pdf.ln(5)
     
-    return markdown_content
-
-def markdown_to_pdf_base64(markdown_content):
-    html = markdown.markdown(markdown_content)
-    pdf = HTML(string=html).write_pdf()
-    return base64.b64encode(pdf).decode('utf-8')
+    pdf.output("checklist.pdf")
 
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
@@ -132,29 +144,12 @@ def render_checklist():
             
             st.markdown("---")
 
-    if st.button("Imprimer la checklist"):
-        markdown_content = generate_printable_checklist()
-        pdf_base64 = markdown_to_pdf_base64(markdown_content)
-        js = f"""
-        <script>
-        var pdf_base64 = "{pdf_base64}";
-        var binary = atob(pdf_base64);
-        var len = binary.length;
-        var buffer = new ArrayBuffer(len);
-        var view = new Uint8Array(buffer);
-        for (var i = 0; i < len; i++) {{
-            view[i] = binary.charCodeAt(i);
-        }}
-        var blob = new Blob([view], {{ type: "application/pdf" }});
-        var url = URL.createObjectURL(blob);
-        var iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = url;
-        document.body.appendChild(iframe);
-        iframe.contentWindow.print();
-        </script>
-        """
-        st.components.v1.html(js, height=0)
+    if st.button("Générer PDF"):
+        generate_pdf_checklist()
+        st.success("Checklist PDF générée !")
+    
+    with open("checklist.pdf", "rb") as f:
+        st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
 
 def manage_products():
     st.subheader("Gestion des Produits")
