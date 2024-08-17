@@ -3,11 +3,11 @@ from pymongo import MongoClient
 
 @st.cache_resource
 def init_connection():
-    mongo_uri = f"mongodb+srv://{st.secrets['mongo']['username']}:{st.secrets['mongo']['password']}@{st.secrets['mongo']['host']}/?retryWrites=true&w=majority&appName=mazette"
+    mongo_uri = f"mongodb+srv://{st.secrets['mongo']['username']}:{st.secrets['mongo']['password']}@{st.secrets['mongo']['host']}/?retryWrites=true&w=majority"
     return MongoClient(mongo_uri)
 
 client = init_connection()
-db = client.mazette  # Replace 'mazette' with your actual database name if different
+db = client.mazette  # This selects the 'mazette' database after connection
 
 @st.cache_data(ttl=600)
 def load_data(collection_name, filter=None):
