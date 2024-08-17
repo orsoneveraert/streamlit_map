@@ -24,14 +24,14 @@ def init_session():
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: item for item in db.products.find()}
     if 'checklist' not in st.session_state:
-    if '{session_key}_checklist' not in st.session_state:
-        checklist_data = db.checklists.find_one({'session_key': session_key})
-        st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
-    if 'general_todos' not in st.session_state:
-        st.session_state.general_todos = list(db.general_todos.find()) or []
-        st.session_state[f'{session_key}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
-    if f'{session_key}_general_todos' not in st.session_state:
-        st.session_state[f'{session_key}_general_todos'] = list(db.general_todos.find({'session_key': session_key})) or []
+        if '{session_key}_checklist' not in st.session_state:
+            checklist_data = db.checklists.find_one({'session_key': session_key})
+            st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
+        if 'general_todos' not in st.session_state:
+            st.session_state.general_todos = list(db.general_todos.find()) or []
+            st.session_state[f'{session_key}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
+        if f'{session_key}_general_todos' not in st.session_state:
+            st.session_state[f'{session_key}_general_todos'] = list(db.general_todos.find({'session_key': session_key})) or []
 
 def save_current_session():
     # Save checklist
