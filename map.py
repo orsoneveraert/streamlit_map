@@ -356,6 +356,22 @@ tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Pr
 
 if tabs == "Checklist":
     render_checklist()
+elif tabs == "Commandes":
+    # Here, add the code for managing commands
+    st.subheader("Ajouter aux commandes")
+    new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
+    new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
+    if st.button("Ajouter aux commandes"):
+        new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
+        st.session_state.checklist = pd.concat([st.session_state.checklist, new_row], ignore_index=True)
+        save_current_session()
+        st.experimental_rerun()
+    
+    # Display and edit the commandes checklist
+    st.subheader("Commandes")
+    edited_df = st.data_editor(st.session_state.checklist, num_rows="dynamic", use_container_width=True)
+    st.session_state.checklist = edited_df
+    save_current_session()
 elif tabs == "Gestion des Produits":
     manage_products()
 elif tabs == "Tâches Générales":
