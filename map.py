@@ -24,7 +24,7 @@ def init_session():
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: item for item in db.products.find()}
     if 'checklist' not in st.session_state:
-    if f'{session_key}_checklist' not in st.session_state:
+    if '{session_key}_checklist' not in st.session_state:
         checklist_data = db.checklists.find_one({'session_key': session_key})
         st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
     if 'general_todos' not in st.session_state:
