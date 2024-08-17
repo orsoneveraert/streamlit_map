@@ -4,6 +4,7 @@ import math
 from fpdf import FPDF
 from pymongo import MongoClient
 from urllib.parse import quote_plus
+from streamlit_extras.tags import tagger_component
 
 st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 
@@ -19,38 +20,28 @@ def init_connection():
 client = init_connection()
 db = client.mazette
 
-# Initialize session data
 def init_session():
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: item for item in db.products.find()}
     if 'checklist' not in st.session_state:
-        checklist_data = db.checklists.find_one({'session_key': 'shared'})
-        if checklist_data:
-            st.session_state.checklist = pd.DataFrame(checklist_data['items'])
-        else:
-            st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
+        st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
     if 'general_todos' not in st.session_state:
-        st.session_state.general_todos = list(db.general_todos.find()) or []  # Use an empty list if no todos found
+        st.session_state.general_todos = list(db.general_todos.find()) or []
 
-# Save session data to MongoDB
 def save_current_session():
-    # Save checklist
     db.checklists.update_one(
-        {'session_key': 'shared'},
+        {'session_key': "shared_session"},
         {'$set': {'items': st.session_state.checklist.to_dict(orient='records')}},
         upsert=True
     )
     
-    # Save products
     for product_name, product_data in st.session_state.products.items():
         db.products.update_one({'name': product_name}, {'$set': product_data}, upsert=True)
     
-    # Save general todos
     db.general_todos.delete_many({})
-    if st.session_state.general_todos:  # Only insert if the list is not empty
+    if st.session_state.general_todos:
         db.general_todos.insert_many(st.session_state.general_todos)
 
-# Set theme based on the day
 def set_theme(day):
     themes = {
         "LUNDI": "#f2dcdb", "MARDI": "#ebf1dd", "JEUDI": "#e5e0ec", "VENDREDI": "#dbeef3"
@@ -58,17 +49,16 @@ def set_theme(day):
     color = themes.get(day, "#FFFFFF")
     st.markdown(f"<style>.stApp {{background-color: {color};}}</style>", unsafe_allow_html=True)
 
-# Calculate needed items for a product
 def calculate_needed_items(product, quantity):
     items = st.session_state.products[product]["items"]
     return [{
         "name": item['name'],
         "count": math.ceil(quantity / item["capacity"]),
         "subtasks": item["subtasks"],
-        "done": item.get("done", False)
+        "done": item.get("done", False),
+        "tags": item.get("tags", [])  # Include tags
     } for item in items]
 
-# Manage general todos
 def manage_general_todos():
     st.subheader("Gestion des Tâches Générales")
     
@@ -76,7 +66,7 @@ def manage_general_todos():
     if st.button("Ajouter une tâche générale") and new_todo:
         st.session_state.general_todos.append({'task': new_todo, 'active': True})
         st.success(f"Tâche '{new_todo}' ajoutée")
-        st.experimental_rerun()
+        st.rerun()
 
     for i, todo in enumerate(st.session_state.general_todos):
         col1, col2, col3 = st.columns([4, 1, 1])
@@ -87,16 +77,15 @@ def manage_general_todos():
         with col3:
             if st.button("Supprimer", key=f"remove_general_todo_{i}"):
                 st.session_state.general_todos.pop(i)
-                st.experimental_rerun()
+                st.rerun()
 
-# Generate a PDF checklist
 def generate_pdf_checklist():
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "Checklist - Partagée", 0, 1, 'C')
+    pdf.cell(0, 10, f"Checklist - shared_session", 0, 1, 'C')
     pdf.ln(10)
     
     pdf.set_font("Arial", 'B', 14)
@@ -132,22 +121,18 @@ def generate_pdf_checklist():
     
     pdf.output("checklist.pdf")
 
-# Render the checklist
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
 
-    # Calculate total tasks and completed tasks
     total_tasks = 0
     completed_tasks = 0
 
-    # Count general todos
     for todo in st.session_state.general_todos:
         if todo['active']:
             total_tasks += 1
             if todo.get('done', False):
                 completed_tasks += 1
 
-    # Count product-specific tasks
     for _, row in st.session_state.checklist.iterrows():
         product, quantity = row['Produit'], row['Quantité']
         if product in st.session_state.products:
@@ -161,7 +146,6 @@ def render_checklist():
                     if subtask.get('done', False):
                         completed_tasks += 1
 
-    # Display progress
     st.subheader("Progression")
     progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
     st.progress(progress_percentage / 100)
@@ -202,8 +186,6 @@ def render_checklist():
     with open("checklist.pdf", "rb") as f:
         st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
 
-# Manage products
-# Manage products
 def manage_products():
     st.subheader("Gestion des Produits")
     product_to_edit = st.selectbox("Sélectionnez un produit à modifier", [""] + list(st.session_state.products.keys()))
@@ -213,12 +195,24 @@ def manage_products():
         new_product_name = st.text_input("Nom du produit", value=product_data['name'])
         new_items = product_data['items']
 
-        # Edit items in the product
         for i, item in enumerate(new_items):
             st.text(f"Élément {i + 1}")
             item['name'] = st.text_input(f"Nom de l'élément {i + 1}", value=item['name'], key=f"edit_item_name_{i}")
             item['capacity'] = st.number_input(f"Capacité de l'élément {i + 1}", value=item['capacity'], key=f"edit_item_capacity_{i}")
             item['subtasks'] = st.text_area(f"Sous-tâches pour l'élément {i + 1} (séparées par des virgules)", value=", ".join([sub['name'] for sub in item['subtasks']]), key=f"edit_item_subtasks_{i}").split(", ")
+
+            # Adding tags to subtasks
+            tags_for_subtasks = []
+            for subtask in item['subtasks']:
+                selected_tags = tagger_component(
+                    label=f"Tags pour '{subtask}'",
+                    value=subtask.get('tags', []),
+                    options=["Lundi", "Mardi", "Jeudi", "Vendredi"],
+                    key=f"edit_tags_{i}_{subtask}"
+                )
+                tags_for_subtasks.append({"name": subtask, "tags": selected_tags})
+
+            item['subtasks'] = tags_for_subtasks
 
             new_items[i] = item
 
@@ -267,6 +261,3 @@ elif tabs == "Tâches Générales":
 if st.sidebar.button("Sauvegarder la session"):
     save_current_session()
     st.sidebar.success("Session sauvegardée avec succès!")
-
-
-
