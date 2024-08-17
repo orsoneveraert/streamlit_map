@@ -203,6 +203,7 @@ def render_checklist():
         st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
 
 # Manage products
+# Manage products
 def manage_products():
     st.subheader("Gestion des Produits")
     product_to_edit = st.selectbox("Sélectionnez un produit à modifier", [""] + list(st.session_state.products.keys()))
