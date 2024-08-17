@@ -30,18 +30,17 @@ def init_session():
 
 def save_current_session():
     db.checklists.update_one(
-        {'session_key': st.session_state.session_key},
-        {'$set': {'items': st.session_state[f'{st.session_state.session_key}_checklist'].to_dict(orient='records')}},
+        {'session_key': "shared_session"},
+        {'$set': {'items': st.session_state.checklist.to_dict(orient='records')}},
         upsert=True
     )
-
-def save_product(product_name):
-    db.products.update_one({'name': product_name}, {'$set': st.session_state.products[product_name]}, upsert=True)
-
-def save_general_todos():
+    
+    for product_name, product_data in st.session_state.products.items():
+        db.products.update_one({'name': product_name}, {'$set': product_data}, upsert=True)
+    
     db.general_todos.delete_many({})
     if st.session_state.general_todos:
-    db.general_todos.insert_many(st.session_state.general_todos)
+        db.general_todos.insert_many(st.session_state.general_todos)
 
 def set_theme(day):
     themes = {
