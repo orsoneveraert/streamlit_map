@@ -268,7 +268,67 @@ def manage_products():
         del st.session_state.products[product_to_delete]
         st.success(f"Produit '{product_to_delete}' supprimé")
         st.experimental_rerun()
+def main():
+    
+    # Initialize the session key for the selected day
+    if 'session_key' not in st.session_state:
+        st.session_state.session_key = "LUNDI"
 
+    with st.sidebar:
+        session_key = st.selectbox("Sélectionnez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], key="day_selector")
+
+    # If the selected session key (day) changes, clear the session state and update
+    if session_key != st.session_state.session_key:
+        st.session_state.clear()
+        st.session_state.session_key = session_key
+
+    # Initialize session data for the selected day
+    set_theme(st.session_state.session_key)
+    init_session(st.session_state.session_key)
+
+    # Display the title for the selected day
+    st.title(f"{st.session_state.session_key}")
+
+    # Sidebar menu
+    with st.sidebar:
+        st.header("Gestion")
+        menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
+
+        # Commandes Management
+        if menu_choice == "Commandes":
+            st.subheader("Ajouter aux commandes")
+            new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
+            new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
+            if st.button("Ajouter aux commandes"):
+                new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
+                st.session_state[f'{st.session_state.session_key}_checklist'] = pd.concat(
+                    [st.session_state[f'{st.session_state.session_key}_checklist'], new_row], 
+                    ignore_index=True
+                )
+                save_current_session(st.session_state.session_key)
+                st.experimental_rerun()
+
+            # Display and edit the commandes checklist
+            st.subheader("Commandes")
+            edited_df = st.data_editor(
+                st.session_state[f'{st.session_state.session_key}_checklist'], 
+                num_rows="dynamic", 
+                use_container_width=True
+            )
+            st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
+            save_current_session(st.session_state.session_key)
+
+        # General Todos Management
+        elif menu_choice == "Gestion des Tâches Générales":
+            manage_general_todos()
+
+        # Product Management
+        elif menu_choice == "Gestion des Produits":
+            manage_products()
+
+        # Duplicate Product Feature
+        elif menu_choice == "Dupliquer le Produit":
+            duplicate_product()
 
 # Main application
 init_session()
