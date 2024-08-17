@@ -194,27 +194,16 @@ def render_checklist():
             todo_key = f"general_todo_{todo['task']}"
             todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
     
-    st.subheader("Tâches Spécifiques aux Produits")
-    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
-        product, quantity = row['Produit'], row['Quantité']
-        if product in st.session_state.products:
-            items_needed = calculate_needed_items(product, quantity)
-            rounded_quantity = math.ceil(quantity)
-            st.markdown(f"#### {product} ({rounded_quantity})")
-            for item in items_needed:
-                item_key = f"task_{product}_{item['name']}"
-                item['done'] = st.checkbox(f"{item['count']} {item['name']}", value=item['done'], key=item_key)
-                
-                for i, subtask in enumerate(item['subtasks']):
-                    subtask_key = f"{item_key}_subtask_{i}"
-                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
-                
-                for prod_item in st.session_state.products[product]['items']:
-                    if prod_item['name'] == item['name']:
-                        prod_item['done'] = item['done']
-                        prod_item['subtasks'] = item['subtasks']
-            
-            st.markdown("---")
+    st.subheader(f"Tâches spécifiques pour {product}")
+for task in st.session_state.products[product]['tasks']:
+    task_key = f"task_{product}_{task['name']}"
+    task['done'] = st.checkbox(f"{task['name']}", value=task.get('done', False), key=task_key)
+    
+    for i, subtask in enumerate(task['subtasks']):
+        subtask_key = f"{task_key}_subtask_{i}"
+        subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+
+st.markdown("---")
 
     if st.button("Générer PDF"):
         generate_pdf_checklist()
