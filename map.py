@@ -212,14 +212,68 @@ def manage_products():
             st.success(f"Ajouté {new_product}")
             st.rerun()
 
-    elif product_to_edit in st.session_state.products:
-        # Product editing code remains the same
-        pass
+   elif product_to_edit in st.session_state.products:
+        st.subheader(f"Modification de {product_to_edit}")
+        
+        for i, item in enumerate(st.session_state.products[product_to_edit]["items"]):
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                new_name = st.text_input(f"Nom de l'élément", item["name"], key=f"name_{i}")
+            with col2:
+                new_capacity = st.number_input(f"Capacité", min_value=1, value=item["capacity"], key=f"capacity_{i}")
+            with col3:
+                if st.button("Supprimer l'élément", key=f"remove_item_{i}"):
+                    st.session_state.products[product_to_edit]["items"].pop(i)
+                    st.rerun()
+            
+            st.write("Sous-tâches:")
+            for j, subtask in enumerate(item["subtasks"]):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    subtask["name"] = st.text_input(f"Nom de la sous-tâche", subtask["name"], key=f"subtask_name_{i}_{j}")
+                with col2:
+                    if st.button("Supprimer la sous-tâche", key=f"remove_subtask_{i}_{j}"):
+                        item["subtasks"].pop(j)
+                        st.rerun()
+            
+            new_subtask = st.text_input(f"Nouvelle sous-tâche pour {item['name']}", key=f"new_subtask_{i}")
+            if st.button(f"Ajouter une sous-tâche à {item['name']}", key=f"add_subtask_{i}") and new_subtask:
+                item["subtasks"].append({"name": new_subtask, "done": False})
+                st.success(f"Sous-tâche '{new_subtask}' ajoutée à {item['name']}")
+                st.rerun()
+            
+            st.session_state.products[product_to_edit]["items"][i] = {
+                "name": new_name, 
+                "capacity": new_capacity, 
+                "subtasks": item["subtasks"], 
+                "done": item.get("done", False)
+            }
+            st.markdown("---")
+        
+        new_item_name = st.text_input("Nom du nouvel élément")
+        new_item_capacity = st.number_input("Capacité de l'élément", min_value=1, value=1)
+        if st.button("Ajouter un élément") and new_item_name:
+            st.session_state.products[product_to_edit]["items"].append({
+                "name": new_item_name, 
+                "capacity": new_item_capacity, 
+                "subtasks": [], 
+                "done": False
+            })
+            st.success(f"Ajouté {new_item_name} à {product_to_edit}")
+            st.rerun()
 
 def duplicate_product():
-    # Product duplication code remains the same
-    pass
+    st.subheader("Dupliquer le Produit")
+    product_to_duplicate = st.selectbox("Sélectionnez un produit à dupliquer:", list(st.session_state.products.keys()))
+    new_product_name = st.text_input("Entrez le nouveau nom du produit dupliqué:")
 
+    if st.button("Dupliquer le Produit") and new_product_name and product_to_duplicate:
+        if new_product_name in st.session_state.products:
+            st.error(f"Un produit nommé '{new_product_name}' existe déjà.")
+        else:
+            st.session_state.products[new_product_name] = st.session_state.products[product_to_duplicate].copy()
+            st.success(f"Dupliqué '{product_to_duplicate}' en '{new_product_name}'")
+            st.rerun()
 def main():
     
     if 'session_key' not in st.session_state:
