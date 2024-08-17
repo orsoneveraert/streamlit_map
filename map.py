@@ -226,7 +226,7 @@ def manage_products():
     if product_to_edit == "Ajouter un nouveau produit":
         new_product = st.text_input("Entrez le nom du nouveau produit:")
         if st.button("Ajouter le produit") and new_product and new_product not in st.session_state.products:
-            st.session_state.products[new_product] = {"items": []}
+            st.session_state.products[new_product] = {"items": [], "tasks": []}
             save_current_session()
             st.success(f"Produit '{new_product}' ajouté")
             st.rerun()
@@ -284,6 +284,59 @@ def manage_products():
             })
             save_current_session()
             st.success(f"Ajouté {new_item_name} à {product_to_edit}")
+            st.rerun()
+
+# New task management section
+        st.subheader("Tâches du produit")
+        if "tasks" not in st.session_state.products[product_to_edit]:
+            st.session_state.products[product_to_edit]["tasks"] = []
+
+        for i, task in enumerate(st.session_state.products[product_to_edit]["tasks"]):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                task_name = st.text_input(f"Nom de la tâche {i+1}", task["name"], key=f"task_name_{i}")
+            with col2:
+                if st.button("Supprimer la tâche", key=f"remove_task_{i}"):
+                    st.session_state.products[product_to_edit]["tasks"].pop(i)
+                    save_current_session()
+                    st.rerun()
+
+            st.write("Sous-tâches:")
+            for j, subtask in enumerate(task["subtasks"]):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    subtask_name = st.text_input(f"Nom de la sous-tâche {j+1}", subtask["name"], key=f"task_subtask_name_{i}_{j}")
+                with col2:
+                    if st.button("Supprimer la sous-tâche", key=f"remove_task_subtask_{i}_{j}"):
+                        task["subtasks"].pop(j)
+                        save_current_session()
+                        st.rerun()
+
+            new_subtask = st.text_input(f"Nouvelle sous-tâche pour la tâche {task['name']}", key=f"new_task_subtask_{i}")
+            if st.button(f"Ajouter une sous-tâche à {task['name']}", key=f"add_task_subtask_{i}") and new_subtask:
+                task["subtasks"].append({"name": new_subtask, "done": False})
+                save_current_session()
+                st.success(f"Sous-tâche '{new_subtask}' ajoutée à la tâche '{task['name']}'")
+                st.rerun()
+
+            st.session_state.products[product_to_edit]["tasks"][i] = {
+                "name": task_name,
+                "subtasks": task["subtasks"],
+                "done": task.get("done", False)
+            }
+
+            st.markdown("---")
+
+        # New task addition
+        new_task_name = st.text_input("Nom de la nouvelle tâche")
+        if st.button("Ajouter une tâche") and new_task_name:
+            st.session_state.products[product_to_edit]["tasks"].append({
+                "name": new_task_name,
+                "subtasks": [],
+                "done": False
+            })
+            save_current_session()
+            st.success(f"Ajouté la tâche {new_task_name} à {product_to_edit}")
             st.rerun()
 
 def duplicate_product():
