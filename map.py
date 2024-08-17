@@ -5,6 +5,7 @@ from fpdf import FPDF
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
+st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 
 # MongoDB connection
 @st.cache_resource
@@ -111,7 +112,6 @@ def duplicate_product():
     pass
 
 def main():
-    st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
     
     if 'session_key' not in st.session_state:
         st.session_state.session_key = "LUNDI"
