@@ -82,6 +82,19 @@ def calculate_needed_items(product, quantity):
         "tags": item.get("tags", [])
     } for item in items]
 
+def move_item_to_day(current_day, target_day, product, quantity):
+    # Remove from current day's checklist
+    current_checklist = st.session_state[f'{current_day}_checklist']
+    current_checklist = current_checklist[~((current_checklist['Produit'] == product) & (current_checklist['Quantité'] == quantity))]
+    st.session_state[f'{current_day}_checklist'] = current_checklist
+
+    # Add to target day's checklist
+    target_checklist = st.session_state[f'{target_day}_checklist']
+    new_row = pd.DataFrame({'Produit': [product], 'Quantité': [quantity]})
+    st.session_state[f'{target_day}_checklist'] = pd.concat([target_checklist, new_row], ignore_index=True)
+
+    save_current_session()
+
 def manage_general_todos():
     st.subheader("Gestion des Tâches Générales")
     
@@ -164,24 +177,6 @@ def render_checklist():
             if todo.get('done', False):
                 completed_tasks += 1
 
-    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
-        product, quantity = row['Produit'], row['Quantité']
-        if product in st.session_state.products:
-            items_needed = calculate_needed_items(product, quantity)
-            for item in items_needed:
-                total_tasks += 1
-                if item.get('done', False):
-                    completed_tasks += 1
-                for subtask in item['subtasks']:
-                    total_tasks += 1
-                    if subtask.get('done', False):
-                        completed_tasks += 1
-
-    st.subheader("Progression")
-    progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
-    st.progress(progress_percentage / 100)
-    st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
-
     st.subheader("Tâches Générales")
     for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
         if todo['active']:
@@ -189,17 +184,35 @@ def render_checklist():
             todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
     
     st.subheader("Tâches Spécifiques aux Produits")
-    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
+    for index, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
         product, quantity = row['Produit'], row['Quantité']
         if product in st.session_state.products:
             items_needed = calculate_needed_items(product, quantity)
             rounded_quantity = math.ceil(quantity)
-            st.markdown(f"#### {product} ({rounded_quantity})")
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"#### {product} ({rounded_quantity})")
+            with col2:
+                days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
+                selected_day = st.selectbox("Déplacer vers", days, key=f"move_{product}_{index}")
+                if selected_day != st.session_state.session_key:
+                    move_item_to_day(st.session_state.session_key, selected_day, product, quantity)
+                    st.rerun()
+            
             for item in items_needed:
+                total_tasks += 1
+                if item.get('done', False):
+                    completed_tasks += 1
+                
                 item_key = f"task_{product}_{item['name']}"
                 item['done'] = st.checkbox(f"{item['count']} {item['name']}", value=item['done'], key=item_key)
                 
                 for i, subtask in enumerate(item['subtasks']):
+                    total_tasks += 1
+                    if subtask.get('done', False):
+                        completed_tasks += 1
+                    
                     subtask_key = f"{item_key}_subtask_{i}"
                     subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
                 
@@ -209,6 +222,11 @@ def render_checklist():
                         prod_item['subtasks'] = item['subtasks']
             
             st.markdown("---")
+
+    st.subheader("Progression")
+    progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    st.progress(progress_percentage / 100)
+    st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
 
     if st.button("Générer PDF"):
         generate_pdf_checklist()
