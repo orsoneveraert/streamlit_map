@@ -6,7 +6,7 @@ def init_connection():
     return MongoClient(st.secrets["mongo"]["uri"])
 
 client = init_connection()
-db = client.mydb  # Replace 'mydb' with your database name
+db = mazette.mydb  # Replace 'mydb' with your database name
 
 @st.cache_data(ttl=600)
 def load_data(collection_name, filter=None):
