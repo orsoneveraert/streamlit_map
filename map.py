@@ -35,17 +35,20 @@ def save_current_session():
     
     # Save products
     for product_name, product_data in st.session_state.products.items():
+        # Remove '_id' if it exists in product_data
+        product_data_without_id = {k: v for k, v in product_data.items() if k != '_id'}
+        
         # Check if the product already exists in the database
         existing_product = db.products.find_one({'name': product_name})
         if existing_product:
             # If it exists, update it
             db.products.update_one(
                 {'_id': existing_product['_id']},
-                {'$set': {k: v for k, v in product_data.items() if k != '_id'}}
+                {'$set': product_data_without_id}
             )
         else:
             # If it doesn't exist, insert it
-            db.products.insert_one(product_data)
+            db.products.insert_one(product_data_without_id)
     
     # Save general todos
     db.general_todos.delete_many({'session_key': st.session_state.session_key})
@@ -278,7 +281,10 @@ def duplicate_product():
         if new_product_name in st.session_state.products:
             st.error(f"Un produit nommé '{new_product_name}' existe déjà.")
         else:
-            st.session_state.products[new_product_name] = st.session_state.products[product_to_duplicate].copy()
+            # Create a new copy of the product without the '_id' field
+            new_product = {k: v for k, v in st.session_state.products[product_to_duplicate].items() if k != '_id'}
+            new_product['name'] = new_product_name
+            st.session_state.products[new_product_name] = new_product
             save_current_session()
             st.success(f"Dupliqué '{product_to_duplicate}' en '{new_product_name}'")
             st.rerun()
