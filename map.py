@@ -69,7 +69,7 @@ def calculate_needed_items(product, quantity):
         "count": math.ceil(quantity / item["capacity"]),
         "subtasks": item["subtasks"],
         "done": item.get("done", False),
-        "tags": item.get("tags", [])  # Include tags
+        "tags": item.get("tags", []),  # Include tags
         "tags": item.get("tags", [])
     } for item in items]
 
