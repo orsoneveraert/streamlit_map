@@ -8,11 +8,12 @@ def init_connection():
     password = quote_plus(st.secrets['mongo']['password'])
     host = st.secrets['mongo']['host']
     
+    # Correct MongoDB URI
     mongo_uri = f"mongodb+srv://{username}:{password}@{host}/?retryWrites=true&w=majority"
     return MongoClient(mongo_uri)
 
 client = init_connection()
-db = client['mazette']  # Use square brackets to select the database
+db = client['mazette']  # Correctly use the database name here
 
 @st.cache_data(ttl=600)
 def load_data(collection_name, filter=None):
@@ -34,3 +35,4 @@ def save_data(collection_name, data, filter=None):
 def delete_data(collection_name, filter):
     collection = db[collection_name]
     collection.delete_one(filter)
+
