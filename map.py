@@ -19,12 +19,12 @@ def init_connection():
 client = init_connection()
 db = client.mazette
 
-# Initialize session state
-def init_session(session_key):
+# Initialize session data
+def init_session():
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: item for item in db.products.find()}
     if 'checklist' not in st.session_state:
-        checklist_data = db.checklists.find_one({'session_key': session_key})
+        checklist_data = db.checklists.find_one({'session_key': 'shared'})
         if checklist_data:
             st.session_state.checklist = pd.DataFrame(checklist_data['items'])
         else:
@@ -32,11 +32,11 @@ def init_session(session_key):
     if 'general_todos' not in st.session_state:
         st.session_state.general_todos = list(db.general_todos.find()) or []  # Use an empty list if no todos found
 
-# Save session state to database
-def save_current_session(session_key):
+# Save session data to MongoDB
+def save_current_session():
     # Save checklist
     db.checklists.update_one(
-        {'session_key': session_key},
+        {'session_key': 'shared'},
         {'$set': {'items': st.session_state.checklist.to_dict(orient='records')}},
         upsert=True
     )
@@ -50,7 +50,7 @@ def save_current_session(session_key):
     if st.session_state.general_todos:  # Only insert if the list is not empty
         db.general_todos.insert_many(st.session_state.general_todos)
 
-# Set theme based on the selected day
+# Set theme based on the day
 def set_theme(day):
     themes = {
         "LUNDI": "#f2dcdb", "MARDI": "#ebf1dd", "JEUDI": "#e5e0ec", "VENDREDI": "#dbeef3"
@@ -58,7 +58,7 @@ def set_theme(day):
     color = themes.get(day, "#FFFFFF")
     st.markdown(f"<style>.stApp {{background-color: {color};}}</style>", unsafe_allow_html=True)
 
-# Calculate needed items based on the product and quantity
+# Calculate needed items for a product
 def calculate_needed_items(product, quantity):
     items = st.session_state.products[product]["items"]
     return [{
@@ -68,7 +68,7 @@ def calculate_needed_items(product, quantity):
         "done": item.get("done", False)
     } for item in items]
 
-# Manage general to-dos
+# Manage general todos
 def manage_general_todos():
     st.subheader("Gestion des Tâches Générales")
     
@@ -76,7 +76,7 @@ def manage_general_todos():
     if st.button("Ajouter une tâche générale") and new_todo:
         st.session_state.general_todos.append({'task': new_todo, 'active': True})
         st.success(f"Tâche '{new_todo}' ajoutée")
-        st.rerun()
+        st.experimental_rerun()
 
     for i, todo in enumerate(st.session_state.general_todos):
         col1, col2, col3 = st.columns([4, 1, 1])
@@ -87,47 +87,52 @@ def manage_general_todos():
         with col3:
             if st.button("Supprimer", key=f"remove_general_todo_{i}"):
                 st.session_state.general_todos.pop(i)
-                st.rerun()
+                st.experimental_rerun()
 
 # Generate a PDF checklist
 def generate_pdf_checklist():
-    if st.session_state.checklist.empty:
-        st.warning("La checklist est vide. Ajoutez des produits avant de générer un PDF.")
-        return
-
     pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
+    pdf.set_font("Arial", size=12)
     
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(200, 10, txt="Checklist de Commandes", ln=True, align="C")
-
-    pdf.set_font("Arial", "B", 12)
-    pdf.ln(10)  # Add a line break
-
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "Checklist - Partagée", 0, 1, 'C')
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Tâches Générales", 0, 1)
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", size=12)
+    for todo in st.session_state.general_todos:
+        if todo['active']:
+            pdf.cell(0, 10, f"[ ] {todo['task']}", 0, 1)
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Tâches Spécifiques aux Produits", 0, 1)
+    pdf.ln(5)
+    
     for _, row in st.session_state.checklist.iterrows():
-        product = row['Produit']
-        quantity = row['Quantité']
-        pdf.cell(200, 10, txt=f"{product} - {quantity} unité(s)", ln=True, align="L")
-        
-        # Add needed items for the product
-        needed_items = calculate_needed_items(product, quantity)
-        for item in needed_items:
-            pdf.cell(10)  # indentation
-            pdf.cell(200, 8, txt=f" - {item['name']}: {item['count']} unité(s)", ln=True, align="L")
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            items_needed = calculate_needed_items(product, quantity)
+            rounded_quantity = math.ceil(quantity)
+            
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(0, 10, f"{product} ({rounded_quantity})", 0, 1)
+            
+            pdf.set_font("Arial", size=12)
+            for item in items_needed:
+                pdf.cell(0, 10, f"[ ] {item['count']} {item['name']}", 0, 1)
+                for subtask in item['subtasks']:
+                    pdf.cell(10)
+                    pdf.cell(0, 10, f"[ ] {subtask['name']}", 0, 1)
+            pdf.ln(5)
     
-    pdf_output = f"checklist_{st.session_state.session_key}.pdf"
-    pdf.output(pdf_output)
+    pdf.output("checklist.pdf")
 
-    with open(pdf_output, "rb") as pdf_file:
-        st.download_button(
-            label="Télécharger la checklist en PDF",
-            data=pdf_file,
-            file_name=pdf_output,
-            mime="application/pdf",
-        )
-
-# Render the checklist with progress
+# Render the checklist
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
 
@@ -200,74 +205,67 @@ def render_checklist():
 # Manage products
 def manage_products():
     st.subheader("Gestion des Produits")
-    product_to_edit = st.selectbox("Sélectionnez un produit à modifier:", 
-                                   list(st.session_state.products.keys()) + ["Ajouter un nouveau produit"])
+    product_to_edit = st.selectbox("Sélectionnez un produit à modifier", [""] + list(st.session_state.products.keys()))
 
-    if product_to_edit == "Ajouter un nouveau produit":
-        new_product = st.text_input("Entrez le nom du nouveau produit:")
-        if st.button("Ajouter le produit") and new_product and new_product not in st.session_state.products:
-            st.session_state.products[new_product] = {"name": new_product, "items": []}
-            st.success(f"Ajouté {new_product}")
-            st.rerun()
+    if product_to_edit:
+        product_data = st.session_state.products[product_to_edit]
+        new_product_name = st.text_input("Nom du produit", value=product_data['name'])
+        new_items = product_data['items']
 
-    if product_to_edit and product_to_edit != "Ajouter un nouveau produit":
-        product = st.session_state.products[product_to_edit]
+        # Edit items in the product
+        for i, item in enumerate(new_items):
+            st.text(f"Élément {i + 1}")
+            item['name'] = st.text_input(f"Nom de l'élément {i + 1}", value=item['name'], key=f"edit_item_name_{i}")
+            item['capacity'] = st.number_input(f"Capacité de l'élément {i + 1}", value=item['capacity'], key=f"edit_item_capacity_{i}")
+            item['subtasks'] = st.text_area(f"Sous-tâches pour l'élément {i + 1} (séparées par des virgules)", value=", ".join([sub['name'] for sub in item['subtasks']]), key=f"edit_item_subtasks_{i}").split(", ")
 
-        new_name = st.text_input("Nom du produit", product["name"])
-        if new_name != product["name"]:
-            st.session_state.products.pop(product["name"])
-            product["name"] = new_name
-            st.session_state.products[new_name] = product
+            new_items[i] = item
 
-        st.write("### Éléments du produit")
-        for i, item in enumerate(product["items"]):
-            st.write(f"#### Élément {i + 1}")
-            item["name"] = st.text_input("Nom de l'élément", item["name"], key=f"{product_to_edit}_item_{i}")
-            item["capacity"] = st.number_input("Capacité", value=item["capacity"], min_value=1, key=f"{product_to_edit}_capacity_{i}")
+        if st.button("Enregistrer les modifications du produit"):
+            st.session_state.products[new_product_name] = {'name': new_product_name, 'items': new_items}
+            if new_product_name != product_to_edit:
+                del st.session_state.products[product_to_edit]
+            st.success(f"Modifications du produit '{new_product_name}' enregistrées")
+            st.experimental_rerun()
 
-            subtask_count = len(item["subtasks"])
-            for j in range(subtask_count):
-                item["subtasks"][j]["name"] = st.text_input(
-                    f"Nom de la sous-tâche {j + 1}", 
-                    item["subtasks"][j]["name"], 
-                    key=f"{product_to_edit}_subtask_{i}_{j}"
-                )
+    st.markdown("---")
+    st.subheader("Ajouter un nouveau produit")
+    
+    new_product_name = st.text_input("Nom du nouveau produit")
+    if new_product_name and new_product_name not in st.session_state.products:
+        st.session_state.products[new_product_name] = {'name': new_product_name, 'items': []}
+        st.success(f"Produit '{new_product_name}' ajouté à la base de données")
+    elif new_product_name:
+        st.warning("Ce produit existe déjà.")
 
-            if st.button("Supprimer cet élément", key=f"remove_item_{product_to_edit}_{i}"):
-                product["items"].pop(i)
-                st.rerun()
+    st.markdown("---")
 
-        if st.button("Ajouter un élément"):
-            product["items"].append({"name": "", "capacity": 1, "subtasks": []})
+    st.subheader("Supprimer un produit")
+    product_to_delete = st.selectbox("Sélectionnez un produit à supprimer", [""] + list(st.session_state.products.keys()))
+    if product_to_delete and st.button(f"Supprimer {product_to_delete}"):
+        del st.session_state.products[product_to_delete]
+        db.products.delete_one({'name': product_to_delete})
+        st.success(f"Produit '{product_to_delete}' supprimé")
+        st.experimental_rerun()
 
-        if st.button("Sauvegarder les modifications"):
-            st.session_state.products[product["name"]] = product
-            st.success("Modifications sauvegardées")
-            save_current_session(st.session_state.session_key)
+# Main application
+init_session()
 
-def main():
-    session_key = st.text_input("Entrez la clé de session (une valeur unique pour chaque utilisateur):")
+day = st.sidebar.selectbox("Jour", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"])
+set_theme(day)
 
-    if session_key:
-        st.session_state.session_key = session_key
-        init_session(session_key)
-        day = st.selectbox("Choisissez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"])
-        set_theme(day)
+tabs = st.sidebar.radio("Navigation", ["Checklist", "Gestion des Produits", "Tâches Générales"])
 
-        tab1, tab2, tab3 = st.tabs(["Checklist", "Gérer Produits", "Tâches Générales"])
+if tabs == "Checklist":
+    render_checklist()
+elif tabs == "Gestion des Produits":
+    manage_products()
+elif tabs == "Tâches Générales":
+    manage_general_todos()
 
-        with tab1:
-            render_checklist()
-        with tab2:
-            manage_products()
-        with tab3:
-            manage_general_todos()
+if st.sidebar.button("Sauvegarder la session"):
+    save_current_session()
+    st.sidebar.success("Session sauvegardée avec succès!")
 
-        if st.button("Sauvegarder la session"):
-            save_current_session(session_key)
-            st.success("Session sauvegardée")
-
-if __name__ == "__main__":
-    main()
 
 
