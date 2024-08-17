@@ -222,6 +222,20 @@ def render_checklist():
     # Save the current state
     save_current_session()
 
+def add_task_to_product(product_name, task_name):
+    if product_name in st.session_state.products:
+        if 'tasks' not in st.session_state.products[product_name]:
+            st.session_state.products[product_name]['tasks'] = []
+        
+        st.session_state.products[product_name]['tasks'].append({
+            'name': task_name,
+            'subtasks': [],
+            'done': False
+        })
+        save_current_session()
+        st.success(f"Task '{task_name}' added to {product_name}")
+    else:
+        st.error(f"Product '{product_name}' not found")
 
 def manage_products():
     product_to_edit = st.selectbox(
