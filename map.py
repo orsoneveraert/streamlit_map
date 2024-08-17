@@ -5,7 +5,6 @@ from fpdf import FPDF
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
-    st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 
 # MongoDB connection
 @st.cache_resource
@@ -160,15 +159,8 @@ def main():
     render_checklist()
     save_current_session(st.session_state.session_key)
 
-
-def set_theme(day):
-    themes = {
-        "LUNDI": "#f2dcdb", "MARDI": "#ebf1dd", "JEUDI": "#e5e0ec", "VENDREDI": "#dbeef3"
-    }
-    color = themes.get(day, "#FFFFFF")
-    st.markdown(f"<style>.stApp {{background-color: {color};}}</style>", unsafe_allow_html=True)
-
 def main():
+        st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
     
     if 'session_key' not in st.session_state:
         st.session_state.session_key = "LUNDI"
