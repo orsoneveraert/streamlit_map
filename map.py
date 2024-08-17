@@ -5,6 +5,7 @@ from fpdf import FPDF
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 from streamlit_extras.tags import tagger_component
+from bson import ObjectId
 
 st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 
@@ -22,18 +23,7 @@ db = client.mazette
 
 def init_session():
     if 'products' not in st.session_state:
-        st.session_state.products = {item['name']: item for item in db.products.find()}
-    
-    days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
-    for day in days:
-        if f'{day}_checklist' not in st.session_state:
-            checklist_data = db.checklists.find_one({'session_key': day})
-            st.session_state[f'{day}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
-        
-        if f'{day}_general_todos' not in st.session_state:
-            todos_data = list(db.general_todos.find({'session_key': day}))
-            st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
-
+        st.session_state.products = {item['name']: {**item, '_id': str(item['_id'])} for item in db.products.find()}
 
 def save_current_session():
     # Save checklist
@@ -45,7 +35,17 @@ def save_current_session():
     
     # Save products
     for product_name, product_data in st.session_state.products.items():
-        db.products.update_one({'name': product_name}, {'$set': product_data}, upsert=True)
+        # Check if the product already exists in the database
+        existing_product = db.products.find_one({'name': product_name})
+        if existing_product:
+            # If it exists, update it
+            db.products.update_one(
+                {'_id': existing_product['_id']},
+                {'$set': {k: v for k, v in product_data.items() if k != '_id'}}
+            )
+        else:
+            # If it doesn't exist, insert it
+            db.products.insert_one(product_data)
     
     # Save general todos
     db.general_todos.delete_many({'session_key': st.session_state.session_key})
