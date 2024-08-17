@@ -3,17 +3,8 @@ from pymongo import MongoClient
 
 @st.cache_resource
 def init_connection():
-    # Check if we have a full URI in the secrets
-    if "mongo" in st.secrets and "uri" in st.secrets["mongo"]:
-        return MongoClient(st.secrets["mongo"]["uri"])
-    
-    # If not, try to construct it from individual components
-    elif "mongodb+srv" in st.secrets:
-        return MongoClient(st.secrets["mongodb+srv"])
-    
-    # If neither option works, raise an error
-    else:
-        raise KeyError("MongoDB connection details not found in secrets.")
+    mongo_uri = f"mongodb+srv://{st.secrets['mongo']['username']}:{st.secrets['mongo']['password']}@{st.secrets['mongo']['host']}/?retryWrites=true&w=majority&appName=mazette"
+    return MongoClient(mongo_uri)
 
 client = init_connection()
 db = client.mazette  # Replace 'mazette' with your actual database name if different
