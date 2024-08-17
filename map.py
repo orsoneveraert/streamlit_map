@@ -23,7 +23,7 @@ db = client.mazette
 
 def init_session():
     if 'products' not in st.session_state:
-        st.session_state.products = {item['name']: {**item, '_id': str(item['_id'])} for item in db.products.find()}
+st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
     
     days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
     for day in days:
@@ -45,19 +45,15 @@ def save_current_session():
     
     # Save products
     for product_name, product_data in st.session_state.products.items():
-        # Remove '_id' if it exists in product_data
         product_data_without_id = {k: v for k, v in product_data.items() if k != '_id'}
         
-        # Check if the product already exists in the database
         existing_product = db.products.find_one({'name': product_name})
         if existing_product:
-            # If it exists, update it
             db.products.update_one(
                 {'_id': existing_product['_id']},
                 {'$set': product_data_without_id}
             )
         else:
-            # If it doesn't exist, insert it
             db.products.insert_one(product_data_without_id)
     
     # Save general todos
@@ -176,6 +172,16 @@ def render_checklist():
                     total_tasks += 1
                     if subtask.get('done', False):
                         completed_tasks += 1
+		# Render tasks
+            for task in st.session_state.products[product]['tasks']:
+                task_key = f"task_{product}_{task['name']}"
+                task['done'] = st.checkbox(f"{task['name']}", value=task.get('done', False), key=task_key)
+                
+                for i, subtask in enumerate(task['subtasks']):
+                    subtask_key = f"{task_key}_subtask_{i}"
+                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+            
+            st.markdown("---")
 
     st.subheader("Progression")
     progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
