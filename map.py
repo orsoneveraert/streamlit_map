@@ -23,10 +23,17 @@ db = client.mazette
 def init_session():
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: item for item in db.products.find()}
-    if 'checklist' not in st.session_state:
-        st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
-    if 'general_todos' not in st.session_state:
-        st.session_state.general_todos = list(db.general_todos.find()) or []
+    
+    days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
+    for day in days:
+        if f'{day}_checklist' not in st.session_state:
+            checklist_data = db.checklists.find_one({'session_key': day})
+            st.session_state[f'{day}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
+        
+        if f'{day}_general_todos' not in st.session_state:
+            todos_data = list(db.general_todos.find({'session_key': day}))
+            st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
+
 
 def save_current_session():
     # Save checklist
@@ -292,11 +299,10 @@ def main():
         session_key = st.selectbox("Sélectionnez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], key="day_selector")
 
     if session_key != st.session_state.session_key:
-        st.session_state.clear()
         st.session_state.session_key = session_key
 
     set_theme(st.session_state.session_key)
-    init_session()
+    init_session()  # Call init_session() here
 
     st.title(f"{st.session_state.session_key}")
 
