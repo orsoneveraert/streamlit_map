@@ -24,6 +24,16 @@ db = client.mazette
 def init_session():
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: {**item, '_id': str(item['_id'])} for item in db.products.find()}
+    
+    days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
+    for day in days:
+        if f'{day}_checklist' not in st.session_state:
+            checklist_data = db.checklists.find_one({'session_key': day})
+            st.session_state[f'{day}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
+        
+        if f'{day}_general_todos' not in st.session_state:
+            todos_data = list(db.general_todos.find({'session_key': day}))
+            st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
 
 def save_current_session():
     # Save checklist
@@ -75,6 +85,10 @@ def calculate_needed_items(product, quantity):
 def manage_general_todos():
     st.subheader("Gestion des Tâches Générales")
     
+    # Ensure the key exists
+    if f'{st.session_state.session_key}_general_todos' not in st.session_state:
+        st.session_state[f'{st.session_state.session_key}_general_todos'] = []
+
     new_todo = st.text_input("Nouvelle tâche générale")
     if st.button("Ajouter une tâche générale") and new_todo:
         st.session_state[f'{st.session_state.session_key}_general_todos'].append({'task': new_todo, 'active': True})
