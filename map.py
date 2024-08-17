@@ -174,8 +174,13 @@ def render_checklist():
                         completed_tasks += 1
 		# Render tasks
             for task in st.session_state.products[product]['tasks']:
-                task_key = f"task_{product}_{task['name']}"
-                task['done'] = st.checkbox(f"{task['name']}", value=task.get('done', False), key=task_key)
+		    total_tasks += 1
+		    if task.get('done', False):
+		        completed_tasks += 1
+		    for subtask in task['subtasks']:
+		        total_tasks += 1
+		        if subtask.get('done', False):
+		            completed_tasks += 1
                 
                 for i, subtask in enumerate(task['subtasks']):
                     subtask_key = f"{task_key}_subtask_{i}"
