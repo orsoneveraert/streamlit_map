@@ -6,9 +6,7 @@ from urllib.parse import quote_plus
 def init_connection():
     username = quote_plus(st.secrets["mongo"]["username"])
     password = quote_plus(st.secrets["mongo"]["password"])
-    host = st.secrets["mongo"]["host"]
-    # Extract the cluster name from the host
-    cluster = '.'.join(host.split('.')[-3:])
+    cluster = "mazette.dgv4a.mongodb.net"  # This should be your actual cluster name
     connection_string = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority"
     return pymongo.MongoClient(connection_string)
 
@@ -28,6 +26,6 @@ for item in items:
     st.write(f"{item['name']} has a :{item['pet']}:")
 
 # Optionally, you can print the connection string (without password) to verify it's correct
-cluster = '.'.join(st.secrets['mongo']['host'].split('.')[-3:])
+cluster = "mazette.dgv4a.mongodb.net"
 connection_string = f"mongodb+srv://{st.secrets['mongo']['username']}:****@{cluster}/?retryWrites=true&w=majority"
 st.write(f"Connecting to: {connection_string}")
