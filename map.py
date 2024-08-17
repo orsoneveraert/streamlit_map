@@ -205,7 +205,7 @@ def manage_products():
             # Initialize the new product with an empty list of items
             st.session_state.products[new_product] = {"items": []}
             st.success(f"Produit '{new_product}' ajouté")
-            st.experimental_rerun()
+            st.rerun()
 
     elif product_to_edit in st.session_state.products:
         st.subheader(f"Modification de '{product_to_edit}'")
@@ -221,7 +221,7 @@ def manage_products():
                 if st.button("Supprimer l'élément", key=f"remove_item_{i}"):
                     # Remove the item from the list
                     st.session_state.products[product_to_edit]["items"].pop(i)
-                    st.experimental_rerun()
+                    st.rerun()
 
             st.write("Sous-tâches:")
             for j, subtask in enumerate(item["subtasks"]):
@@ -233,14 +233,14 @@ def manage_products():
                     if st.button("Supprimer la sous-tâche", key=f"remove_subtask_{i}_{j}"):
                         # Remove the subtask from the list
                         item["subtasks"].pop(j)
-                        st.experimental_rerun()
+                        st.rerun()
 
             # Adding a new subtask to the current item
             new_subtask = st.text_input(f"Nouvelle sous-tâche pour l'élément {item['name']}", key=f"new_subtask_{i}")
             if st.button(f"Ajouter une sous-tâche à {item['name']}", key=f"add_subtask_{i}") and new_subtask:
                 item["subtasks"].append({"name": new_subtask, "done": False})
                 st.success(f"Sous-tâche '{new_subtask}' ajoutée à '{item['name']}'")
-                st.experimental_rerun()
+                st.rerun()
 
             # Update the item in session state
             st.session_state.products[product_to_edit]["items"][i] = {
@@ -322,7 +322,7 @@ def main():
                     ignore_index=True
                 )
                 save_current_session(st.session_state.session_key)
-                st.experimental_rerun()
+                st.rerun()
 
             # Display and edit the commandes checklist
             st.subheader("Commandes")
@@ -365,7 +365,7 @@ elif tabs == "Commandes":
         new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
         st.session_state.checklist = pd.concat([st.session_state.checklist, new_row], ignore_index=True)
         save_current_session()
-        st.experimental_rerun()
+        st.rerun()
     
     # Display and edit the commandes checklist
     st.subheader("Commandes")
