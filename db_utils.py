@@ -1,24 +1,23 @@
-import os
-from pymongo import MongoClient
 import streamlit as st
+from pymongo import MongoClient
 
-# Use st.secrets to securely store your MongoDB connection string
-MONGO_URI = st.secrets["mongodb+srv://mazette:XBebw6oZYo6ljjcV@mazette.dgv4a.mongodb.net/?retryWrites=true&w=majority&appName=mazette"]
+@st.cache_resource
+def init_connection():
+    return MongoClient(st.secrets["mongo"]["uri"])
 
-client = MongoClient(MONGO_URI)
-db = client['checklist_app']  # Replace with your database name
+client = init_connection()
+db = client.mydb  # Replace 'mydb' with your database name
 
-def get_collection(collection_name):
-    return db[collection_name]
-
+@st.cache_data(ttl=600)
 def load_data(collection_name, filter=None):
-    collection = get_collection(collection_name)
+    collection = db[collection_name]
     if filter is None:
         filter = {}
-    return list(collection.find(filter))
+    items = collection.find(filter)
+    return list(items)
 
 def save_data(collection_name, data, filter=None):
-    collection = get_collection(collection_name)
+    collection = db[collection_name]
     if filter is None:
         # Insert new document
         collection.insert_one(data)
@@ -27,5 +26,5 @@ def save_data(collection_name, data, filter=None):
         collection.update_one(filter, {"$set": data}, upsert=True)
 
 def delete_data(collection_name, filter):
-    collection = get_collection(collection_name)
+    collection = db[collection_name]
     collection.delete_one(filter)
