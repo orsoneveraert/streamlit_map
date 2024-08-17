@@ -186,62 +186,89 @@ def render_checklist():
     with open("checklist.pdf", "rb") as f:
         st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
 
+import streamlit as st
+
 def manage_products():
-    st.subheader("Gestion des Produits")
-    product_to_edit = st.selectbox("Sélectionnez un produit à modifier", [""] + list(st.session_state.products.keys()))
+    # Select or add a new product
+    product_to_edit = st.selectbox(
+        "Sélectionnez un produit à modifier:",
+        list(st.session_state.products.keys()) + ["Ajouter un nouveau produit"]
+    )
 
-    if product_to_edit:
-        product_data = st.session_state.products[product_to_edit]
-        new_product_name = st.text_input("Nom du produit", value=product_data['name'])
-        new_items = product_data['items']
-
-        for i, item in enumerate(new_items):
-            st.text(f"Élément {i + 1}")
-            item['name'] = st.text_input(f"Nom de l'élément {i + 1}", value=item['name'], key=f"edit_item_name_{i}")
-            item['capacity'] = st.number_input(f"Capacité de l'élément {i + 1}", value=item['capacity'], key=f"edit_item_capacity_{i}")
-            item['subtasks'] = st.text_area(f"Sous-tâches pour l'élément {i + 1} (séparées par des virgules)", value=", ".join([sub['name'] for sub in item['subtasks']]), key=f"edit_item_subtasks_{i}").split(", ")
-
-            # Adding tags to subtasks
-            tags_for_subtasks = []
-            for subtask in item['subtasks']:
-                selected_tags = tagger_component(
-                    label=f"Tags pour '{subtask}'",
-                    value=subtask.get('tags', []),
-                    options=["Lundi", "Mardi", "Jeudi", "Vendredi"],
-                    key=f"edit_tags_{i}_{subtask}"
-                )
-                tags_for_subtasks.append({"name": subtask, "tags": selected_tags})
-
-            item['subtasks'] = tags_for_subtasks
-
-            new_items[i] = item
-
-        if st.button("Enregistrer les modifications du produit"):
-            st.session_state.products[new_product_name] = {'name': new_product_name, 'items': new_items}
-            if new_product_name != product_to_edit:
-                del st.session_state.products[product_to_edit]
-            st.success(f"Modifications du produit '{new_product_name}' enregistrées")
+    if product_to_edit == "Ajouter un nouveau produit":
+        new_product = st.text_input("Entrez le nom du nouveau produit:")
+        if st.button("Ajouter le produit") and new_product and new_product not in st.session_state.products:
+            # Initialize the new product with an empty list of items
+            st.session_state.products[new_product] = {"items": []}
+            st.success(f"Produit '{new_product}' ajouté")
             st.experimental_rerun()
 
-    st.markdown("---")
-    st.subheader("Ajouter un nouveau produit")
-    
-    new_product_name = st.text_input("Nom du nouveau produit")
-    if new_product_name and new_product_name not in st.session_state.products:
-        st.session_state.products[new_product_name] = {'name': new_product_name, 'items': []}
-        st.success(f"Produit '{new_product_name}' ajouté à la base de données")
-    elif new_product_name:
-        st.warning("Ce produit existe déjà.")
+    elif product_to_edit in st.session_state.products:
+        st.subheader(f"Modification de '{product_to_edit}'")
 
-    st.markdown("---")
+        # Editing existing items within the selected product
+        for i, item in enumerate(st.session_state.products[product_to_edit]["items"]):
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                new_name = st.text_input(f"Nom de l'élément {i+1}", item["name"], key=f"name_{i}")
+            with col2:
+                new_capacity = st.number_input(f"Capacité de l'élément {i+1}", min_value=1, value=item["capacity"], key=f"capacity_{i}")
+            with col3:
+                if st.button("Supprimer l'élément", key=f"remove_item_{i}"):
+                    # Remove the item from the list
+                    st.session_state.products[product_to_edit]["items"].pop(i)
+                    st.experimental_rerun()
 
+            st.write("Sous-tâches:")
+            for j, subtask in enumerate(item["subtasks"]):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    # Update the subtask name
+                    subtask_name = st.text_input(f"Nom de la sous-tâche {j+1}", subtask["name"], key=f"subtask_name_{i}_{j}")
+                with col2:
+                    if st.button("Supprimer la sous-tâche", key=f"remove_subtask_{i}_{j}"):
+                        # Remove the subtask from the list
+                        item["subtasks"].pop(j)
+                        st.experimental_rerun()
+
+            # Adding a new subtask to the current item
+            new_subtask = st.text_input(f"Nouvelle sous-tâche pour l'élément {item['name']}", key=f"new_subtask_{i}")
+            if st.button(f"Ajouter une sous-tâche à {item['name']}", key=f"add_subtask_{i}") and new_subtask:
+                item["subtasks"].append({"name": new_subtask, "done": False})
+                st.success(f"Sous-tâche '{new_subtask}' ajoutée à '{item['name']}'")
+                st.experimental_rerun()
+
+            # Update the item in session state
+            st.session_state.products[product_to_edit]["items"][i] = {
+                "name": new_name,
+                "capacity": new_capacity,
+                "subtasks": item["subtasks"],
+                "done": item.get("done", False)
+            }
+
+            st.markdown("---")
+
+        # Adding a new item to the selected product
+        new_item_name = st.text_input("Nom du nouvel élément")
+        new_item_capacity = st.number_input("Capacité du nouvel élément", min_value=1, value=1)
+        if st.button("Ajouter un élément") and new_item_name:
+            st.session_state.products[product_to_edit]["items"].append({
+                "name": new_item_name,
+                "capacity": new_item_capacity,
+                "subtasks": [],
+                "done": False
+            })
+            st.success(f"Élément '{new_item_name}' ajouté à '{product_to_edit}'")
+            st.experimental_rerun()
+
+    # Optionally, delete a product
     st.subheader("Supprimer un produit")
     product_to_delete = st.selectbox("Sélectionnez un produit à supprimer", [""] + list(st.session_state.products.keys()))
     if product_to_delete and st.button(f"Supprimer {product_to_delete}"):
         del st.session_state.products[product_to_delete]
-        db.products.delete_one({'name': product_to_delete})
         st.success(f"Produit '{product_to_delete}' supprimé")
         st.experimental_rerun()
+
 
 # Main application
 init_session()
