@@ -5,64 +5,7 @@ from fpdf import FPDF
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
-def set_theme(day):
-    themes = {
-        "LUNDI": "#f2dcdb", "MARDI": "#ebf1dd", "JEUDI": "#e5e0ec", "VENDREDI": "#dbeef3"
-    }
-    color = themes.get(day, "#FFFFFF")
-    st.markdown(f"<style>.stApp {{background-color: {color};}}</style>", unsafe_allow_html=True)
-
-def main():
     st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
-    
-    if 'session_key' not in st.session_state:
-        st.session_state.session_key = "LUNDI"
-    
-    with st.sidebar:
-        session_key = st.selectbox("Sélectionnez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], key="day_selector")
-    
-    if session_key != st.session_state.session_key:
-        st.session_state.clear()
-        st.session_state.session_key = session_key
-    
-    set_theme(st.session_state.session_key)
-    init_session(st.session_state.session_key)
-    
-    st.title(f"{st.session_state.session_key}")
-
-    with st.sidebar:
-        st.header("Gestion")
-        menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
-
-        if menu_choice == "Commandes":
-            st.subheader("Ajouter aux commandes")
-            new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
-            new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
-            if st.button("Ajouter aux commandes"):
-                new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
-                st.session_state.checklist = pd.concat([st.session_state.checklist, new_row], ignore_index=True)
-                save_current_session(st.session_state.session_key)
-                st.rerun()
-
-            st.subheader("Commandes")
-            edited_df = st.data_editor(st.session_state.checklist, num_rows="dynamic", use_container_width=True)
-            st.session_state.checklist = edited_df
-            save_current_session(st.session_state.session_key)
-
-        elif menu_choice == "Gestion des Tâches Générales":
-            manage_general_todos()
-
-        elif menu_choice == "Gestion des Produits":
-            manage_products()
-
-        elif menu_choice == "Dupliquer le Produit":
-            duplicate_product()
-
-    render_checklist()
-    save_current_session(st.session_state.session_key)
-
-if __name__ == "__main__":
-    main()
 
 # MongoDB connection
 @st.cache_resource
@@ -217,5 +160,62 @@ def main():
     render_checklist()
     save_current_session(st.session_state.session_key)
 
+
+def set_theme(day):
+    themes = {
+        "LUNDI": "#f2dcdb", "MARDI": "#ebf1dd", "JEUDI": "#e5e0ec", "VENDREDI": "#dbeef3"
+    }
+    color = themes.get(day, "#FFFFFF")
+    st.markdown(f"<style>.stApp {{background-color: {color};}}</style>", unsafe_allow_html=True)
+
+def main():
+    
+    if 'session_key' not in st.session_state:
+        st.session_state.session_key = "LUNDI"
+    
+    with st.sidebar:
+        session_key = st.selectbox("Sélectionnez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], key="day_selector")
+    
+    if session_key != st.session_state.session_key:
+        st.session_state.clear()
+        st.session_state.session_key = session_key
+    
+    set_theme(st.session_state.session_key)
+    init_session(st.session_state.session_key)
+    
+    st.title(f"{st.session_state.session_key}")
+
+    with st.sidebar:
+        st.header("Gestion")
+        menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
+
+        if menu_choice == "Commandes":
+            st.subheader("Ajouter aux commandes")
+            new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
+            new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
+            if st.button("Ajouter aux commandes"):
+                new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
+                st.session_state.checklist = pd.concat([st.session_state.checklist, new_row], ignore_index=True)
+                save_current_session(st.session_state.session_key)
+                st.rerun()
+
+            st.subheader("Commandes")
+            edited_df = st.data_editor(st.session_state.checklist, num_rows="dynamic", use_container_width=True)
+            st.session_state.checklist = edited_df
+            save_current_session(st.session_state.session_key)
+
+        elif menu_choice == "Gestion des Tâches Générales":
+            manage_general_todos()
+
+        elif menu_choice == "Gestion des Produits":
+            manage_products()
+
+        elif menu_choice == "Dupliquer le Produit":
+            duplicate_product()
+
+    render_checklist()
+    save_current_session(st.session_state.session_key)
+
 if __name__ == "__main__":
     main()
+
