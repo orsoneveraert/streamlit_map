@@ -154,9 +154,16 @@ def render_checklist():
     total_tasks = 0
     completed_tasks = 0
 
+    # Debugging: Print the structure of st.session_state
+    st.write("Session state keys:", st.session_state.keys())
+
     # General todos
     st.subheader("Tâches Générales")
-    for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
+    general_todos_key = f'{st.session_state.session_key}_general_todos'
+    st.write(f"General todos key: {general_todos_key}")
+    st.write(f"General todos: {st.session_state.get(general_todos_key, [])}")
+    
+    for todo in st.session_state.get(general_todos_key, []):
         if todo['active']:
             todo_key = f"general_todo_{todo['task']}"
             todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
@@ -165,8 +172,14 @@ def render_checklist():
                 completed_tasks += 1
 
     # Product-specific tasks
-    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
+    checklist_key = f'{st.session_state.session_key}_checklist'
+    st.write(f"Checklist key: {checklist_key}")
+    st.write(f"Checklist: {st.session_state.get(checklist_key, pd.DataFrame())}")
+    
+    for _, row in st.session_state.get(checklist_key, pd.DataFrame()).iterrows():
         product, quantity = row['Produit'], row['Quantité']
+        st.write(f"Processing product: {product}")
+        
         if product in st.session_state.products:
             st.subheader(f"{product} ({quantity})")
             
@@ -188,6 +201,8 @@ def render_checklist():
             
             # Product-specific tasks
             st.subheader(f"Tâches spécifiques pour {product}")
+            st.write(f"Product tasks: {st.session_state.products[product].get('tasks', [])}")
+            
             for task in st.session_state.products[product].get('tasks', []):
                 task_key = f"task_{product}_{task['name']}"
                 task['done'] = st.checkbox(f"{task['name']}", value=task.get('done', False), key=task_key)
