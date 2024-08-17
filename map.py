@@ -41,7 +41,7 @@ def save_product(product_name):
 def save_general_todos():
    db.general_todos.delete_many({})
     if st.session_state.general_todos:
-        db.general_todos.insert_many(st.session_state.general_todos)
+    db.general_todos.insert_many(st.session_state.general_todos)
 
 def set_theme(day):
     themes = {
