@@ -1,13 +1,18 @@
 import streamlit as st
 from pymongo import MongoClient
+from urllib.parse import quote_plus
 
 @st.cache_resource
 def init_connection():
-    mongo_uri = f"mongodb+srv://{st.secrets['mongo']['username']}:{st.secrets['mongo']['password']}@{st.secrets['mongo']['host']}/?retryWrites=true&w=majority"
+    username = quote_plus(st.secrets['mongo']['username'])
+    password = quote_plus(st.secrets['mongo']['password'])
+    host = st.secrets['mongo']['host']
+    
+    mongo_uri = f"mongodb+srv://{username}:{password}@{host}/?retryWrites=true&w=majority"
     return MongoClient(mongo_uri)
 
 client = init_connection()
-db = client.mazette  # This selects the 'mazette' database after connection
+db = client['mazette']  # Use square brackets to select the database
 
 @st.cache_data(ttl=600)
 def load_data(collection_name, filter=None):
