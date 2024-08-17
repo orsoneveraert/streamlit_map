@@ -37,15 +37,21 @@ def init_session(session_key):
         st.session_state.general_todos = list(db.general_todos.find())
 
 def save_current_session(session_key):
+    # Save checklist
     db.checklists.update_one(
         {'session_key': session_key},
         {'$set': {'items': st.session_state.checklist.to_dict(orient='records')}},
         upsert=True
     )
+    
+    # Save products
     for product_name, product_data in st.session_state.products.items():
         db.products.update_one({'name': product_name}, {'$set': product_data}, upsert=True)
+    
+    # Save general todos
     db.general_todos.delete_many({})
-    db.general_todos.insert_many(st.session_state.general_todos)
+    if st.session_state.general_todos:  # Only insert if the list is not empty
+        db.general_todos.insert_many(st.session_state.general_todos)
 
 def set_theme(day):
     themes = {
