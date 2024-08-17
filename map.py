@@ -154,16 +154,9 @@ def render_checklist():
     total_tasks = 0
     completed_tasks = 0
 
-    # Debugging: Print the structure of st.session_state
-    st.write("Session state keys:", st.session_state.keys())
-
     # General todos
     st.subheader("Tâches Générales")
-    general_todos_key = f'{st.session_state.session_key}_general_todos'
-    st.write(f"General todos key: {general_todos_key}")
-    st.write(f"General todos: {st.session_state.get(general_todos_key, [])}")
-    
-    for todo in st.session_state.get(general_todos_key, []):
+    for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
         if todo['active']:
             todo_key = f"general_todo_{todo['task']}"
             todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
@@ -172,14 +165,8 @@ def render_checklist():
                 completed_tasks += 1
 
     # Product-specific tasks
-    checklist_key = f'{st.session_state.session_key}_checklist'
-    st.write(f"Checklist key: {checklist_key}")
-    st.write(f"Checklist: {st.session_state.get(checklist_key, pd.DataFrame())}")
-    
-    for _, row in st.session_state.get(checklist_key, pd.DataFrame()).iterrows():
+    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
         product, quantity = row['Produit'], row['Quantité']
-        st.write(f"Processing product: {product}")
-        
         if product in st.session_state.products:
             st.subheader(f"{product} ({quantity})")
             
@@ -200,22 +187,21 @@ def render_checklist():
                         completed_tasks += 1
             
             # Product-specific tasks
-            st.subheader(f"Tâches spécifiques pour {product}")
-            st.write(f"Product tasks: {st.session_state.products[product].get('tasks', [])}")
-            
-            for task in st.session_state.products[product].get('tasks', []):
-                task_key = f"task_{product}_{task['name']}"
-                task['done'] = st.checkbox(f"{task['name']}", value=task.get('done', False), key=task_key)
-                total_tasks += 1
-                if task['done']:
-                    completed_tasks += 1
-                
-                for i, subtask in enumerate(task['subtasks']):
-                    subtask_key = f"{task_key}_subtask_{i}"
-                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+            if 'tasks' in st.session_state.products[product]:
+                st.subheader(f"Tâches spécifiques pour {product}")
+                for task in st.session_state.products[product]['tasks']:
+                    task_key = f"task_{product}_{task['name']}"
+                    task['done'] = st.checkbox(task['name'], value=task.get('done', False), key=task_key)
                     total_tasks += 1
-                    if subtask['done']:
+                    if task['done']:
                         completed_tasks += 1
+                    
+                    for i, subtask in enumerate(task.get('subtasks', [])):
+                        subtask_key = f"{task_key}_subtask_{i}"
+                        subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                        total_tasks += 1
+                        if subtask['done']:
+                            completed_tasks += 1
             
             st.markdown("---")
 
