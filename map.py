@@ -115,10 +115,8 @@ def generate_pdf_checklist():
             for item in items_needed:
                 pdf.cell(0, 10, f"[ ] {item['count']} {item['name']}", 0, 1)
                 for subtask in item['subtasks']:
-                    tags_str = ', '.join(subtask.get('tags', []))  # Convert tags to a comma-separated string
-                    subtask_text = f"{subtask['name']} ({tags_str})" if tags_str else subtask['name']
                     pdf.cell(10)
-                    pdf.cell(0, 10, f"[ ] {subtask_text}", 0, 1)
+                    pdf.cell(0, 10, f"[ ] {subtask['name']}", 0, 1)
             pdf.ln(5)
     
     pdf.output("checklist.pdf")
@@ -172,9 +170,7 @@ def render_checklist():
                 
                 for i, subtask in enumerate(item['subtasks']):
                     subtask_key = f"{item_key}_subtask_{i}"
-                    tags_str = ', '.join(subtask.get('tags', []))  # Convert tags to a comma-separated string
-                    subtask_text = f"  - {subtask['name']} ({tags_str})" if tags_str else f"  - {subtask['name']}"
-                    subtask['done'] = st.checkbox(subtask_text, value=subtask.get('done', False), key=subtask_key)
+                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
                 
                 for prod_item in st.session_state.products[product]['items']:
                     if prod_item['name'] == item['name']:
@@ -247,23 +243,21 @@ def manage_products():
         st.success(f"Produit '{product_to_delete}' supprimé")
         st.experimental_rerun()
 
-def main():
-    st.title("Suivi de Mise en Place")
-    init_session()
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        render_checklist()
-        
-    with col2:
-        manage_products()
-        manage_general_todos()
-        
-    if st.button("Sauvegarder la session actuelle"):
-        save_current_session()
-        st.success("Session sauvegardée avec succès")
+# Main application
+init_session()
 
-if __name__ == "__main__":
-    main()
+day = st.sidebar.selectbox("Jour", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"])
+set_theme(day)
 
+tabs = st.sidebar.radio("Navigation", ["Checklist", "Gestion des Produits", "Tâches Générales"])
+
+if tabs == "Checklist":
+    render_checklist()
+elif tabs == "Gestion des Produits":
+    manage_products()
+elif tabs == "Tâches Générales":
+    manage_general_todos()
+
+if st.sidebar.button("Sauvegarder la session"):
+    save_current_session()
+    st.sidebar.success("Session sauvegardée avec succès!")
