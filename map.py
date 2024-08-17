@@ -90,12 +90,115 @@ def manage_general_todos():
                 st.rerun()
 
 def generate_pdf_checklist():
-    # PDF generation code remains the same
-    pass
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, f"Checklist - {st.session_state.session_key}", 0, 1, 'C')
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Tâches Générales", 0, 1)
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", size=12)
+    for todo in st.session_state.general_todos:
+        if todo['active']:
+            pdf.cell(0, 10, f"[ ] {todo['task']}", 0, 1)
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Tâches Spécifiques aux Produits", 0, 1)
+    pdf.ln(5)
+    
+    for _, row in st.session_state.checklist.iterrows():
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            items_needed = calculate_needed_items(product, quantity)
+            rounded_quantity = math.ceil(quantity)
+            
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(0, 10, f"{product} ({rounded_quantity})", 0, 1)
+            
+            pdf.set_font("Arial", size=12)
+            for item in items_needed:
+                pdf.cell(0, 10, f"[ ] {item['count']} {item['name']}", 0, 1)
+                for subtask in item['subtasks']:
+                    pdf.cell(10)
+                    pdf.cell(0, 10, f"[ ] {subtask['name']}", 0, 1)
+            pdf.ln(5)
+    
+    pdf.output("checklist.pdf")
 
 def render_checklist():
-    # Checklist rendering code remains the same
-    pass
+    st.header("📋 Checklist - Mise en place")
+
+    # Calculate total tasks and completed tasks
+    total_tasks = 0
+    completed_tasks = 0
+
+    # Count general todos
+    for todo in st.session_state.general_todos:
+        if todo['active']:
+            total_tasks += 1
+            if todo.get('done', False):
+                completed_tasks += 1
+
+    # Count product-specific tasks
+    for _, row in st.session_state.checklist.iterrows():
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            items_needed = calculate_needed_items(product, quantity)
+            for item in items_needed:
+                total_tasks += 1
+                if item.get('done', False):
+                    completed_tasks += 1
+                for subtask in item['subtasks']:
+                    total_tasks += 1
+                    if subtask.get('done', False):
+                        completed_tasks += 1
+
+    # Display progress
+    st.subheader("Progression")
+    progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    st.progress(progress_percentage / 100)
+    st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
+
+    st.subheader("Tâches Générales")
+    for todo in st.session_state.general_todos:
+        if todo['active']:
+            todo_key = f"general_todo_{todo['task']}"
+            todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
+    
+    st.subheader("Tâches Spécifiques aux Produits")
+    for _, row in st.session_state.checklist.iterrows():
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            items_needed = calculate_needed_items(product, quantity)
+            rounded_quantity = math.ceil(quantity)
+            st.markdown(f"#### {product} ({rounded_quantity})")
+            for item in items_needed:
+                item_key = f"task_{product}_{item['name']}"
+                item['done'] = st.checkbox(f"{item['count']} {item['name']}", value=item['done'], key=item_key)
+                
+                for i, subtask in enumerate(item['subtasks']):
+                    subtask_key = f"{item_key}_subtask_{i}"
+                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                
+                for prod_item in st.session_state.products[product]['items']:
+                    if prod_item['name'] == item['name']:
+                        prod_item['done'] = item['done']
+                        prod_item['subtasks'] = item['subtasks']
+            
+            st.markdown("---")
+
+    if st.button("Générer PDF"):
+        generate_pdf_checklist()
+        st.success("Checklist PDF générée !")
+    
+    with open("checklist.pdf", "rb") as f:
+        st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
 
 def manage_products():
     st.subheader("Gestion des Produits")
