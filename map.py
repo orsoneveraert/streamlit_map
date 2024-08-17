@@ -124,15 +124,18 @@ def generate_pdf_checklist():
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
 
+    # Calculate total tasks and completed tasks
     total_tasks = 0
     completed_tasks = 0
 
+    # Count general todos
     for todo in st.session_state.general_todos:
         if todo['active']:
             total_tasks += 1
             if todo.get('done', False):
                 completed_tasks += 1
 
+    # Count product-specific tasks
     for _, row in st.session_state.checklist.iterrows():
         product, quantity = row['Produit'], row['Quantité']
         if product in st.session_state.products:
@@ -146,6 +149,7 @@ def render_checklist():
                     if subtask.get('done', False):
                         completed_tasks += 1
 
+    # Display progress
     st.subheader("Progression")
     progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
     st.progress(progress_percentage / 100)
@@ -258,9 +262,21 @@ def manage_products():
                 "subtasks": [],
                 "done": False
             })
-            st.success(f"Élément '{new_item_name}' ajouté à '{product_to_edit}'")
-            st.experimental_rerun()
+            st.success(f"Ajouté {new_item_name} à {product_to_edit}")
+            st.rerun()
 
+def duplicate_product():
+    st.subheader("Dupliquer le Produit")
+    product_to_duplicate = st.selectbox("Sélectionnez un produit à dupliquer:", list(st.session_state.products.keys()))
+    new_product_name = st.text_input("Entrez le nouveau nom du produit dupliqué:")
+
+    if st.button("Dupliquer le Produit") and new_product_name and product_to_duplicate:
+        if new_product_name in st.session_state.products:
+            st.error(f"Un produit nommé '{new_product_name}' existe déjà.")
+        else:
+            st.session_state.products[new_product_name] = st.session_state.products[product_to_duplicate].copy()
+            st.success(f"Dupliqué '{product_to_duplicate}' en '{new_product_name}'")
+            st.rerun()
     # Optionally, delete a product
     st.subheader("Supprimer un produit")
     product_to_delete = st.selectbox("Sélectionnez un produit à supprimer", [""] + list(st.session_state.products.keys()))
