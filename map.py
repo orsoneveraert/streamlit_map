@@ -154,68 +154,73 @@ def render_checklist():
     total_tasks = 0
     completed_tasks = 0
 
-    for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
-        if todo['active']:
-            total_tasks += 1
-            if todo.get('done', False):
-                completed_tasks += 1
-
-    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
-        product, quantity = row['Produit'], row['Quantité']
-        if product in st.session_state.products:
-            items_needed = calculate_needed_items(product, quantity)
-            for item in items_needed:
-                total_tasks += 1
-                if item.get('done', False):
-                    completed_tasks += 1
-                for subtask in item['subtasks']:
-                    total_tasks += 1
-                    if subtask.get('done', False):
-                        completed_tasks += 1
-		# Render tasks
-            for task in st.session_state.products[product]['tasks']:
-		    total_tasks += 1
-		    if task.get('done', False):
-		        completed_tasks += 1
-		    for subtask in task['subtasks']:
-		        total_tasks += 1
-		        if subtask.get('done', False):
-		            completed_tasks += 1
-                
-                for i, subtask in enumerate(task['subtasks']):
-                    subtask_key = f"{task_key}_subtask_{i}"
-                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
-            
-            st.markdown("---")
-
-    st.subheader("Progression")
-    progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
-    st.progress(progress_percentage / 100)
-    st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
-
+    # General todos
     st.subheader("Tâches Générales")
     for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
         if todo['active']:
             todo_key = f"general_todo_{todo['task']}"
             todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
-    
-    st.subheader(f"Tâches spécifiques pour {product}")
-for task in st.session_state.products[product]['tasks']:
-    task_key = f"task_{product}_{task['name']}"
-    task['done'] = st.checkbox(f"{task['name']}", value=task.get('done', False), key=task_key)
-    
-    for i, subtask in enumerate(task['subtasks']):
-        subtask_key = f"{task_key}_subtask_{i}"
-        subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+            total_tasks += 1
+            if todo['done']:
+                completed_tasks += 1
 
-st.markdown("---")
+    # Product-specific tasks
+    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            st.subheader(f"{product} ({quantity})")
+            
+            # Items and their subtasks
+            items_needed = calculate_needed_items(product, quantity)
+            for item in items_needed:
+                item_key = f"item_{product}_{item['name']}"
+                item['done'] = st.checkbox(f"{item['count']} {item['name']}", value=item.get('done', False), key=item_key)
+                total_tasks += 1
+                if item['done']:
+                    completed_tasks += 1
+                
+                for i, subtask in enumerate(item['subtasks']):
+                    subtask_key = f"{item_key}_subtask_{i}"
+                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                    total_tasks += 1
+                    if subtask['done']:
+                        completed_tasks += 1
+            
+            # Product-specific tasks
+            st.subheader(f"Tâches spécifiques pour {product}")
+            for task in st.session_state.products[product].get('tasks', []):
+                task_key = f"task_{product}_{task['name']}"
+                task['done'] = st.checkbox(f"{task['name']}", value=task.get('done', False), key=task_key)
+                total_tasks += 1
+                if task['done']:
+                    completed_tasks += 1
+                
+                for i, subtask in enumerate(task['subtasks']):
+                    subtask_key = f"{task_key}_subtask_{i}"
+                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                    total_tasks += 1
+                    if subtask['done']:
+                        completed_tasks += 1
+            
+            st.markdown("---")
 
+    # Progress bar
+    st.subheader("Progression")
+    progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    st.progress(progress_percentage / 100)
+    st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
+
+    # PDF generation
     if st.button("Générer PDF"):
         generate_pdf_checklist()
         st.success("Checklist PDF générée !")
     
     with open("checklist.pdf", "rb") as f:
         st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
+
+    # Save the current state
+    save_current_session()
+
 
 def manage_products():
     product_to_edit = st.selectbox(
