@@ -3,10 +3,20 @@ from pymongo import MongoClient
 
 @st.cache_resource
 def init_connection():
-    return MongoClient(st.secrets["mongo"]["uri"])
+    # Check if we have a full URI in the secrets
+    if "mongo" in st.secrets and "uri" in st.secrets["mongo"]:
+        return MongoClient(st.secrets["mongo"]["uri"])
+    
+    # If not, try to construct it from individual components
+    elif "mongodb+srv" in st.secrets:
+        return MongoClient(st.secrets["mongodb+srv"])
+    
+    # If neither option works, raise an error
+    else:
+        raise KeyError("MongoDB connection details not found in secrets.")
 
 client = init_connection()
-db = mazette.mydb  # Replace 'mydb' with your database name
+db = client.mazette  # Replace 'mazette' with your actual database name if different
 
 @st.cache_data(ttl=600)
 def load_data(collection_name, filter=None):
