@@ -382,37 +382,37 @@ def main():
 init_session()
 tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
 
-    if tabs == "Checklist":
-        render_checklist()
-    elif tabs == "Commandes":
-        st.subheader("Ajouter aux commandes")
+if tabs == "Checklist":
+    render_checklist()
+elif tabs == "Commandes":
+    st.subheader("Ajouter aux commandes")
 day = st.sidebar.selectbox("Jour", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"])
-        new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
-        new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
-        if st.button("Ajouter aux commandes"):
+    new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
+    new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
+    if st.button("Ajouter aux commandes"):
 set_theme(day)
 
-            new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
-            st.session_state[f'{st.session_state.session_key}_checklist'] = pd.concat(
-                [st.session_state[f'{st.session_state.session_key}_checklist'], new_row], 
-                ignore_index=True
-            )
-            save_current_session()
-            st.rerun()
-        
-        st.subheader("Commandes")
-        edited_df = st.data_editor(
-            st.session_state[f'{st.session_state.session_key}_checklist'], 
-            num_rows="dynamic", 
-            use_container_width=True
+        new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
+        st.session_state[f'{st.session_state.session_key}_checklist'] = pd.concat(
+            [st.session_state[f'{st.session_state.session_key}_checklist'], new_row], 
+            ignore_index=True
         )
-        st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
         save_current_session()
+        st.rerun()
+    
+    st.subheader("Commandes")
+    edited_df = st.data_editor(
+        st.session_state[f'{st.session_state.session_key}_checklist'], 
+        num_rows="dynamic", 
+        use_container_width=True
+    )
+    st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
+    save_current_session()
 tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
-    elif tabs == "Gestion des Produits":
-        manage_products()
-    elif tabs == "Tâches Générales":
-        manage_general_todos()
+elif tabs == "Gestion des Produits":
+    manage_products()
+elif tabs == "Tâches Générales":
+    manage_general_todos()
 
 if tabs == "Checklist":
     render_checklist()
