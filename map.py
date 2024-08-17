@@ -34,7 +34,7 @@ def init_session(session_key):
         else:
             st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
     if 'general_todos' not in st.session_state:
-        st.session_state.general_todos = list(db.general_todos.find())
+        st.session_state.general_todos = list(db.general_todos.find()) or []  # Use an empty list if no todos found
 
 def save_current_session(session_key):
     # Save checklist
