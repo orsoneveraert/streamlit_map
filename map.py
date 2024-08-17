@@ -1,20 +1,20 @@
 import streamlit as st
 import pymongo
+from urllib.parse import quote_plus
 
-# Initialize connection.
-# Uses st.cache_resource to only run once.
 @st.cache_resource
 def init_connection():
-    connection_string = f"mongodb+srv://{st.secrets['mongo']['username']}:{st.secrets['mongo']['password']}@{st.secrets['mongo']['host']}/?authSource={st.secrets['mongo']['authSource']}&authMechanism={st.secrets['mongo']['authMechanism']}"
+    username = quote_plus(st.secrets["mongo"]["username"])
+    password = quote_plus(st.secrets["mongo"]["password"])
+    cluster = st.secrets["mongo"]["cluster"]
+    connection_string = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority"
     return pymongo.MongoClient(connection_string)
 
 client = init_connection()
 
-# Pull data from the collection.
-# Uses st.cache_data to only rerun when the query changes or after 10 min.
 @st.cache_data(ttl=600)
 def get_data():
-    db = client['mazette']  # Select the 'mazette' database
+    db = client[st.secrets["mongo"]["database"]]
     items = db.mycollection.find()
     items = list(items)  # make hashable for st.cache_data
     return items
@@ -24,3 +24,7 @@ items = get_data()
 # Print results.
 for item in items:
     st.write(f"{item['name']} has a :{item['pet']}:")
+
+# Optionally, you can print the connection string (without password) to verify it's correct
+connection_string = f"mongodb+srv://{st.secrets['mongo']['username']}:****@{st.secrets['mongo']['cluster']}/?retryWrites=true&w=majority"
+st.write(f"Connecting to: {connection_string}")
