@@ -21,26 +21,40 @@ client = init_connection()
 db = client.mazette
 
 def init_session():
+def init_session(session_key):
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: item for item in db.products.find()}
     if 'checklist' not in st.session_state:
+    if f'{session_key}_checklist' not in st.session_state:
+        checklist_data = db.checklists.find_one({'session_key': session_key})
         st.session_state.checklist = pd.DataFrame(columns=['Produit', 'Quantité'])
     if 'general_todos' not in st.session_state:
         st.session_state.general_todos = list(db.general_todos.find()) or []
+        st.session_state[f'{session_key}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
+    if f'{session_key}_general_todos' not in st.session_state:
+        st.session_state[f'{session_key}_general_todos'] = list(db.general_todos.find({'session_key': session_key})) or []
 
 def save_current_session():
+    # Save checklist
     db.checklists.update_one(
         {'session_key': "shared_session"},
         {'$set': {'items': st.session_state.checklist.to_dict(orient='records')}},
+        {'session_key': st.session_state.session_key},
+        {'$set': {'items': st.session_state[f'{st.session_state.session_key}_checklist'].to_dict(orient='records')}},
         upsert=True
     )
     
+    # Save products
     for product_name, product_data in st.session_state.products.items():
         db.products.update_one({'name': product_name}, {'$set': product_data}, upsert=True)
     
+    # Save general todos
     db.general_todos.delete_many({})
     if st.session_state.general_todos:
         db.general_todos.insert_many(st.session_state.general_todos)
+    db.general_todos.delete_many({'session_key': st.session_state.session_key})
+    if st.session_state[f'{st.session_state.session_key}_general_todos']:
+        db.general_todos.insert_many([{**todo, 'session_key': st.session_state.session_key} for todo in st.session_state[f'{st.session_state.session_key}_general_todos']])
 
 def set_theme(day):
     themes = {
@@ -57,6 +71,7 @@ def calculate_needed_items(product, quantity):
         "subtasks": item["subtasks"],
         "done": item.get("done", False),
         "tags": item.get("tags", [])  # Include tags
+        "tags": item.get("tags", [])
     } for item in items]
 
 def manage_general_todos():
@@ -65,22 +80,32 @@ def manage_general_todos():
     new_todo = st.text_input("Nouvelle tâche générale")
     if st.button("Ajouter une tâche générale") and new_todo:
         st.session_state.general_todos.append({'task': new_todo, 'active': True})
+        st.session_state[f'{st.session_state.session_key}_general_todos'].append({'task': new_todo, 'active': True})
+        save_current_session()
         st.success(f"Tâche '{new_todo}' ajoutée")
         st.rerun()
 
     for i, todo in enumerate(st.session_state.general_todos):
+    for i, todo in enumerate(st.session_state[f'{st.session_state.session_key}_general_todos']):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
             st.session_state.general_todos[i]['task'] = st.text_input(f"Tâche {i+1}", todo['task'], key=f"general_todo_{i}")
+            st.session_state[f'{st.session_state.session_key}_general_todos'][i]['task'] = st.text_input(f"Tâche {i+1}", todo['task'], key=f"general_todo_{i}")
         with col2:
             st.session_state.general_todos[i]['active'] = st.checkbox("Actif", todo['active'], key=f"general_todo_active_{i}")
+            st.session_state[f'{st.session_state.session_key}_general_todos'][i]['active'] = st.checkbox("Actif", todo['active'], key=f"general_todo_active_{i}")
         with col3:
             if st.button("Supprimer", key=f"remove_general_todo_{i}"):
                 st.session_state.general_todos.pop(i)
+                st.session_state[f'{st.session_state.session_key}_general_todos'].pop(i)
+                save_current_session()
                 st.rerun()
+    
+    save_current_session()
 
 def generate_pdf_checklist():
     pdf = FPDF()
+    # ... (keep the existing generate_pdf_checklist function)
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     
@@ -123,9 +148,12 @@ def generate_pdf_checklist():
 
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
+    # ... (keep the existing render_checklist function, but update references to st.session_state.checklist to st.session_state[f'{st.session_state.session_key}_checklist'])
 
     # Calculate total tasks and completed tasks
     total_tasks = 0
+    # ... (update references to st.session_state.general_todos to st.session_state[f'{st.session_state.session_key}_general_todos'])
+    # Add save_current_session() at the end of this function
     completed_tasks = 0
 
     # Count general todos
@@ -194,6 +222,7 @@ import streamlit as st
 
 def manage_products():
     # Select or add a new product
+    # ... (keep the existing manage_products function)
     product_to_edit = st.selectbox(
         "Sélectionnez un produit à modifier:",
         list(st.session_state.products.keys()) + ["Ajouter un nouveau produit"]
@@ -202,6 +231,7 @@ def manage_products():
     if product_to_edit == "Ajouter un nouveau produit":
         new_product = st.text_input("Entrez le nom du nouveau produit:")
         if st.button("Ajouter le produit") and new_product and new_product not in st.session_state.products:
+    # Add save_current_session() after any modifications to st.session_state.products
             # Initialize the new product with an empty list of items
             st.session_state.products[new_product] = {"items": []}
             st.success(f"Produit '{new_product}' ajouté")
@@ -267,8 +297,10 @@ def manage_products():
 
 def duplicate_product():
     st.subheader("Dupliquer le Produit")
+    # ... (keep the existing duplicate_product function)
     product_to_duplicate = st.selectbox("Sélectionnez un produit à dupliquer:", list(st.session_state.products.keys()))
     new_product_name = st.text_input("Entrez le nouveau nom du produit dupliqué:")
+    # Add save_current_session() after duplicating or deleting a product
 
     if st.button("Dupliquer le Produit") and new_product_name and product_to_duplicate:
         if new_product_name in st.session_state.products:
@@ -322,6 +354,7 @@ def main():
                     ignore_index=True
                 )
                 save_current_session(st.session_state.session_key)
+                save_current_session()
                 st.rerun()
 
             # Display and edit the commandes checklist
@@ -333,6 +366,7 @@ def main():
             )
             st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
             save_current_session(st.session_state.session_key)
+            save_current_session()
 
         # General Todos Management
         elif menu_choice == "Gestion des Tâches Générales":
@@ -348,15 +382,44 @@ def main():
 
 # Main application
 init_session()
+    tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
 
+    if tabs == "Checklist":
+        render_checklist()
+    elif tabs == "Commandes":
+        st.subheader("Ajouter aux commandes")
 day = st.sidebar.selectbox("Jour", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"])
+        new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
+        new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
+        if st.button("Ajouter aux commandes"):
 set_theme(day)
 
+            new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
+            st.session_state[f'{st.session_state.session_key}_checklist'] = pd.concat(
+                [st.session_state[f'{st.session_state.session_key}_checklist'], new_row], 
+                ignore_index=True
+            )
+            save_current_session()
+            st.rerun()
+        
+        st.subheader("Commandes")
+        edited_df = st.data_editor(
+            st.session_state[f'{st.session_state.session_key}_checklist'], 
+            num_rows="dynamic", 
+            use_container_width=True
+        )
+        st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
+        save_current_session()
 tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
+    elif tabs == "Gestion des Produits":
+        manage_products()
+    elif tabs == "Tâches Générales":
+        manage_general_todos()
 
 if tabs == "Checklist":
     render_checklist()
-elif tabs == "Commandes":
+if __name__ == "__main__":
+    main()elif tabs == "Commandes":
     # Here, add the code for managing commands
     st.subheader("Ajouter aux commandes")
     new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
