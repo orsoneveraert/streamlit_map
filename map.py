@@ -21,7 +21,6 @@ client = init_connection()
 db = client.mazette
 
 def init_session():
-def init_session(session_key):
     if 'products' not in st.session_state:
         st.session_state.products = {item['name']: item for item in db.products.find()}
     if 'checklist' not in st.session_state:
