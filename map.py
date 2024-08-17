@@ -85,7 +85,6 @@ def manage_general_todos():
         st.rerun()
 
     for i, todo in enumerate(st.session_state.general_todos):
-    for i, todo in enumerate(st.session_state[f'{st.session_state.session_key}_general_todos']):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
             st.session_state.general_todos[i]['task'] = st.text_input(f"Tâche {i+1}", todo['task'], key=f"general_todo_{i}")
