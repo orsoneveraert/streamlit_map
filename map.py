@@ -39,7 +39,7 @@ def save_product(product_name):
     db.products.update_one({'name': product_name}, {'$set': st.session_state.products[product_name]}, upsert=True)
 
 def save_general_todos():
-   db.general_todos.delete_many({})
+    db.general_todos.delete_many({})
     if st.session_state.general_todos:
     db.general_todos.insert_many(st.session_state.general_todos)
 
