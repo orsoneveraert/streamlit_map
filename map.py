@@ -413,36 +413,67 @@ def duplicate_product():
         st.experimental_rerun()
 
 def main():
-    if 'session_key' not in st.session_state:
-        st.session_state.session_key = "LUNDI"
+    try:
+        # Initialize session state
+        if 'session_key' not in st.session_state:
+            st.session_state.session_key = "LUNDI"
 
-    with st.sidebar:
-        session_key = st.selectbox("Sélectionnez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], key="day_selector")
+        # Sidebar
+        with st.sidebar:
+            session_key = st.selectbox("Sélectionnez le jour:", 
+                                       ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], 
+                                       key="day_selector")
 
-    if session_key != st.session_state.session_key:
-        st.session_state.session_key = session_key
+        # Update session key if changed
+        if session_key != st.session_state.session_key:
+            st.session_state.session_key = session_key
 
-    set_theme(st.session_state.session_key)
-    init_session()  # Call init_session() here
+        # Set theme and initialize session
+        set_theme(st.session_state.session_key)
+        init_session()
 
-    st.title(f"{st.session_state.session_key}")
+        # Main title
+        st.title(f"{st.session_state.session_key}")
 
-    with st.sidebar:
-        st.header("Gestion")
-        menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
+        # Main content area
+        tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
 
-        if menu_choice == "Commandes":
-            st.subheader("Ajouter aux commandes")
-            new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
-            new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
-            if st.button("Ajouter aux commandes"):
-                new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
-                st.session_state[f'{st.session_state.session_key}_checklist'] = pd.concat(
-                    [st.session_state[f'{st.session_state.session_key}_checklist'], new_row], 
-                    ignore_index=True
-                )
-                save_current_session()
-                st.rerun()
+        if tabs == "Checklist":
+            render_checklist()
+        elif tabs == "Commandes":
+            render_commandes()
+        elif tabs == "Gestion des Produits":
+            manage_products()
+        elif tabs == "Tâches Générales":
+            manage_general_todos()
+
+        # Sidebar management section
+        with st.sidebar:
+            st.header("Gestion")
+            menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
+
+            if menu_choice == "Commandes":
+                sidebar_commandes()
+            elif menu_choice == "Gestion des Tâches Générales":
+                manage_general_todos()
+            elif menu_choice == "Gestion des Produits":
+                manage_products()
+            elif menu_choice == "Dupliquer le Produit":
+                duplicate_product()
+
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+        st.exception(e)
+
+def render_commandes():
+    st.subheader("Ajouter aux commandes")
+    with st.form(key='add_commande'):
+        new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
+        new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
+        submit_button = st.form_submit_button(label='Ajouter aux commandes')
+        
+    if submit_button:
+        add_to_commandes(new_product, new_quantity)
 
             st.subheader("Commandes")
             edited_df = st.data_editor(
