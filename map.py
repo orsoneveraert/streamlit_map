@@ -196,12 +196,14 @@ def render_checklist():
                     if task['done']:
                         completed_tasks += 1
                     
-                    for i, subtask in enumerate(task.get('subtasks', [])):
-                        subtask_key = f"{task_key}_subtask_{i}"
-                        subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
-                        total_tasks += 1
-                        if subtask['done']:
-                            completed_tasks += 1
+                    # Render subtasks for each task
+                    if 'subtasks' in task:
+                        for i, subtask in enumerate(task['subtasks']):
+                            subtask_key = f"{task_key}_subtask_{i}"
+                            subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                            total_tasks += 1
+                            if subtask['done']:
+                                completed_tasks += 1
             
             st.markdown("---")
 
