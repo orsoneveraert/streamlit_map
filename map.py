@@ -17,12 +17,10 @@ def init_connection():
     return MongoClient(connection_string)
 client = init_connection()
 db = client.mazette
-
 def init_session():
     if 'products' not in st.session_state:
 st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
-    st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
-
+    
     days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
     for day in days:
         if f'{day}_checklist' not in st.session_state:
@@ -183,7 +181,13 @@ def render_checklist():
                     total_tasks += 1
                     if task['done']:
                         completed_tasks += 1
-                    
+
+                    for i, subtask in enumerate(task.get('subtasks', [])):
+                        subtask_key = f"{task_key}_subtask_{i}"
+                        subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                        total_tasks += 1
+                        if subtask['done']:
+                            completed_tasks += 1
                     # Render subtasks for each task
                     if 'subtasks' in task:
                         for i, subtask in enumerate(task['subtasks']):
@@ -192,8 +196,9 @@ def render_checklist():
                             total_tasks += 1
                             if subtask['done']:
                                 completed_tasks += 1
-            
+
             st.markdown("---")
+
     # Progress bar
     st.subheader("Progression")
     progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
