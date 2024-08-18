@@ -188,7 +188,6 @@ def render_checklist():
             
             # Product-specific tasks
             if 'tasks' in st.session_state.products[product]:
-                st.subheader(f"Tâches spécifiques pour {product}")
                 for task in st.session_state.products[product]['tasks']:
                     task_key = f"task_{product}_{task['name']}"
                     task['done'] = st.checkbox(task['name'], value=task.get('done', False), key=task_key)
@@ -436,7 +435,6 @@ def main():
         elif menu_choice == "Dupliquer le Produit":
             duplicate_product()
 
-    tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
 
     if tabs == "Checklist":
         render_checklist()
