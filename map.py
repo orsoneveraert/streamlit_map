@@ -482,7 +482,7 @@ def render_commandes():
                 use_container_width=True
             )
         st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
-            save_current_session()
+        save_current_session()
 
         elif menu_choice == "Gestion des Tâches Générales":
             manage_general_todos()
