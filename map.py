@@ -21,7 +21,8 @@ def init_session():
     if 'products' not in st.session_state:
         st.session_state.products = {
     item.get('name', 'Unknown'): {**item, '_id': str(item.get('_id', 'Unknown')), 'tasks': item.get('tasks', [])}
-    for item in db.products.find()    
+    for item in db.products.find()
+}
     days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
     for day in days:
         if f'{day}_checklist' not in st.session_state:
