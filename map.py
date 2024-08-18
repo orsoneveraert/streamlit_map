@@ -434,7 +434,8 @@ def main():
 
         elif menu_choice == "Dupliquer le Produit":
             duplicate_product()
- tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
+
+    tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
 
     if tabs == "Checklist":
         render_checklist()
