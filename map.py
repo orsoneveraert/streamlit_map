@@ -6,7 +6,9 @@ from pymongo import MongoClient
 from urllib.parse import quote_plus
 from streamlit_extras.tags import tagger_component
 from bson import ObjectId
+
 st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
+
 # MongoDB connection
 @st.cache_resource
 def init_connection():
@@ -15,11 +17,13 @@ def init_connection():
     cluster = "mazette.dgv4a.mongodb.net"
     connection_string = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority"
     return MongoClient(connection_string)
+
 client = init_connection()
 db = client.mazette
+
 def init_session():
     if 'products' not in st.session_state:
-st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
+        st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
     
     days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
     for day in days:
@@ -30,6 +34,7 @@ st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'ta
         if f'{day}_general_todos' not in st.session_state:
             todos_data = list(db.general_todos.find({'session_key': day}))
             st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
+
 def save_current_session():
     # Save checklist
     db.checklists.update_one(
@@ -55,12 +60,14 @@ def save_current_session():
     db.general_todos.delete_many({'session_key': st.session_state.session_key})
     if st.session_state[f'{st.session_state.session_key}_general_todos']:
         db.general_todos.insert_many([{**todo, 'session_key': st.session_state.session_key} for todo in st.session_state[f'{st.session_state.session_key}_general_todos']])
+
 def set_theme(day):
     themes = {
         "LUNDI": "#f2dcdb", "MARDI": "#ebf1dd", "JEUDI": "#e5e0ec", "VENDREDI": "#dbeef3"
     }
     color = themes.get(day, "#FFFFFF")
     st.markdown(f"<style>.stApp {{background-color: {color};}}</style>", unsafe_allow_html=True)
+
 def calculate_needed_items(product, quantity):
     items = st.session_state.products[product]["items"]
     return [{
@@ -70,18 +77,21 @@ def calculate_needed_items(product, quantity):
         "done": item.get("done", False),
         "tags": item.get("tags", [])
     } for item in items]
+
 def manage_general_todos():
     st.subheader("Gestion des Tâches Générales")
     
     # Ensure the key exists
     if f'{st.session_state.session_key}_general_todos' not in st.session_state:
         st.session_state[f'{st.session_state.session_key}_general_todos'] = []
+
     new_todo = st.text_input("Nouvelle tâche générale")
     if st.button("Ajouter une tâche générale") and new_todo:
         st.session_state[f'{st.session_state.session_key}_general_todos'].append({'task': new_todo, 'active': True})
         save_current_session()
         st.success(f"Tâche '{new_todo}' ajoutée")
         st.rerun()
+
     for i, todo in enumerate(st.session_state[f'{st.session_state.session_key}_general_todos']):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
@@ -95,6 +105,7 @@ def manage_general_todos():
                 st.rerun()
     
     save_current_session()
+
 def generate_pdf_checklist():
     pdf = FPDF()
     pdf.add_page()
@@ -136,11 +147,13 @@ def generate_pdf_checklist():
             pdf.ln(5)
     
     pdf.output("checklist.pdf")
+
 def render_checklist():
     st.header("📋 Checklist - Mise en place")
     
     total_tasks = 0
     completed_tasks = 0
+
     # General todos
     st.subheader("Tâches Générales")
     for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
@@ -150,6 +163,7 @@ def render_checklist():
             total_tasks += 1
             if todo['done']:
                 completed_tasks += 1
+
     # Product-specific tasks
     for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
         product, quantity = row['Produit'], row['Quantité']
@@ -181,13 +195,7 @@ def render_checklist():
                     total_tasks += 1
                     if task['done']:
                         completed_tasks += 1
-
-                    for i, subtask in enumerate(task.get('subtasks', [])):
-                        subtask_key = f"{task_key}_subtask_{i}"
-                        subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
-                        total_tasks += 1
-                        if subtask['done']:
-                            completed_tasks += 1
+                    
                     # Render subtasks for each task
                     if 'subtasks' in task:
                         for i, subtask in enumerate(task['subtasks']):
@@ -196,7 +204,7 @@ def render_checklist():
                             total_tasks += 1
                             if subtask['done']:
                                 completed_tasks += 1
-
+            
             st.markdown("---")
 
     # Progress bar
@@ -204,6 +212,7 @@ def render_checklist():
     progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
     st.progress(progress_percentage / 100)
     st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
+
     # PDF generation
     if st.button("Générer PDF"):
         generate_pdf_checklist()
@@ -211,8 +220,10 @@ def render_checklist():
     
     with open("checklist.pdf", "rb") as f:
         st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
+
     # Save the current state
     save_current_session()
+
 def add_task_to_product(product_name, task_name):
     if product_name in st.session_state.products:
         if 'tasks' not in st.session_state.products[product_name]:
@@ -227,11 +238,13 @@ def add_task_to_product(product_name, task_name):
         st.success(f"Task '{task_name}' added to {product_name}")
     else:
         st.error(f"Product '{product_name}' not found")
+
 def manage_products():
     product_to_edit = st.selectbox(
         "Sélectionnez un produit à modifier:",
         list(st.session_state.products.keys()) + ["Ajouter un nouveau produit"]
     )
+
     if product_to_edit == "Ajouter un nouveau produit":
         new_product = st.text_input("Entrez le nom du nouveau produit:")
         if st.button("Ajouter le produit") and new_product and new_product not in st.session_state.products:
@@ -239,8 +252,10 @@ def manage_products():
             save_current_session()
             st.success(f"Produit '{new_product}' ajouté")
             st.rerun()
+
     elif product_to_edit in st.session_state.products:
         st.subheader(f"Modification de '{product_to_edit}'")
+
         for i, item in enumerate(st.session_state.products[product_to_edit]["items"]):
             col1, col2, col3 = st.columns([2, 1, 1])
             with col1:
@@ -252,6 +267,7 @@ def manage_products():
                     st.session_state.products[product_to_edit]["items"].pop(i)
                     save_current_session()
                     st.rerun()
+
             st.write("Sous-tâches:")
             for j, subtask in enumerate(item["subtasks"]):
                 col1, col2 = st.columns([3, 1])
@@ -262,19 +278,23 @@ def manage_products():
                         item["subtasks"].pop(j)
                         save_current_session()
                         st.rerun()
+
             new_subtask = st.text_input(f"Nouvelle sous-tâche pour l'élément {item['name']}", key=f"new_subtask_{i}")
             if st.button(f"Ajouter une sous-tâche à {item['name']}", key=f"add_subtask_{i}") and new_subtask:
                 item["subtasks"].append({"name": new_subtask, "done": False})
                 save_current_session()
                 st.success(f"Sous-tâche '{new_subtask}' ajoutée à '{item['name']}'")
                 st.rerun()
+
             st.session_state.products[product_to_edit]["items"][i] = {
                 "name": new_name,
                 "capacity": new_capacity,
                 "subtasks": item["subtasks"],
                 "done": item.get("done", False)
             }
+
             st.markdown("---")
+
         new_item_name = st.text_input("Nom du nouvel élément")
         new_item_capacity = st.number_input("Capacité du nouvel élément", min_value=1, value=1)
         if st.button("Ajouter un élément") and new_item_name:
@@ -287,10 +307,12 @@ def manage_products():
             save_current_session()
             st.success(f"Ajouté {new_item_name} à {product_to_edit}")
             st.rerun()
+
 # New task management section
         st.subheader("Tâches du produit")
         if "tasks" not in st.session_state.products[product_to_edit]:
             st.session_state.products[product_to_edit]["tasks"] = []
+
         for i, task in enumerate(st.session_state.products[product_to_edit]["tasks"]):
             col1, col2 = st.columns([3, 1])
             with col1:
@@ -300,6 +322,7 @@ def manage_products():
                     st.session_state.products[product_to_edit]["tasks"].pop(i)
                     save_current_session()
                     st.rerun()
+
             st.write("Sous-tâches:")
             for j, subtask in enumerate(task["subtasks"]):
                 col1, col2 = st.columns([3, 1])
@@ -310,18 +333,22 @@ def manage_products():
                         task["subtasks"].pop(j)
                         save_current_session()
                         st.rerun()
+
             new_subtask = st.text_input(f"Nouvelle sous-tâche pour la tâche {task['name']}", key=f"new_task_subtask_{i}")
             if st.button(f"Ajouter une sous-tâche à {task['name']}", key=f"add_task_subtask_{i}") and new_subtask:
                 task["subtasks"].append({"name": new_subtask, "done": False})
                 save_current_session()
                 st.success(f"Sous-tâche '{new_subtask}' ajoutée à la tâche '{task['name']}'")
                 st.rerun()
+
             st.session_state.products[product_to_edit]["tasks"][i] = {
                 "name": task_name,
                 "subtasks": task["subtasks"],
                 "done": task.get("done", False)
             }
+
             st.markdown("---")
+
         # New task addition
         new_task_name = st.text_input("Nom de la nouvelle tâche")
         if st.button("Ajouter une tâche") and new_task_name:
@@ -333,10 +360,12 @@ def manage_products():
             save_current_session()
             st.success(f"Ajouté la tâche {new_task_name} à {product_to_edit}")
             st.rerun()
+
 def duplicate_product():
     st.subheader("Dupliquer le Produit")
     product_to_duplicate = st.selectbox("Sélectionnez un produit à dupliquer:", list(st.session_state.products.keys()))
     new_product_name = st.text_input("Entrez le nouveau nom du produit dupliqué:")
+
     if st.button("Dupliquer le Produit") and new_product_name and product_to_duplicate:
         if new_product_name in st.session_state.products:
             st.error(f"Un produit nommé '{new_product_name}' existe déjà.")
@@ -348,6 +377,7 @@ def duplicate_product():
             save_current_session()
             st.success(f"Dupliqué '{product_to_duplicate}' en '{new_product_name}'")
             st.rerun()
+
     st.subheader("Supprimer un produit")
     product_to_delete = st.selectbox("Sélectionnez un produit à supprimer", [""] + list(st.session_state.products.keys()))
     if product_to_delete and st.button(f"Supprimer {product_to_delete}"):
@@ -355,19 +385,26 @@ def duplicate_product():
         save_current_session()
         st.success(f"Produit '{product_to_delete}' supprimé")
         st.experimental_rerun()
+
 def main():
     if 'session_key' not in st.session_state:
         st.session_state.session_key = "LUNDI"
+
     with st.sidebar:
         session_key = st.selectbox("Sélectionnez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], key="day_selector")
+
     if session_key != st.session_state.session_key:
         st.session_state.session_key = session_key
+
     set_theme(st.session_state.session_key)
     init_session()  # Call init_session() here
+
     st.title(f"{st.session_state.session_key}")
+
     with st.sidebar:
         st.header("Gestion")
         menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
+
         if menu_choice == "Commandes":
             st.subheader("Ajouter aux commandes")
             new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
@@ -380,6 +417,7 @@ def main():
                 )
                 save_current_session()
                 st.rerun()
+
             st.subheader("Commandes")
             edited_df = st.data_editor(
                 st.session_state[f'{st.session_state.session_key}_checklist'], 
@@ -388,13 +426,18 @@ def main():
             )
             st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
             save_current_session()
+
         elif menu_choice == "Gestion des Tâches Générales":
             manage_general_todos()
+
         elif menu_choice == "Gestion des Produits":
             manage_products()
+
         elif menu_choice == "Dupliquer le Produit":
             duplicate_product()
+
     tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
+
     if tabs == "Checklist":
         render_checklist()
     elif tabs == "Commandes":
@@ -422,5 +465,6 @@ def main():
         manage_products()
     elif tabs == "Tâches Générales":
         manage_general_todos()
+
 if __name__ == "__main__":
     main()
