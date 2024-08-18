@@ -3,7 +3,6 @@ import pandas as pd
 import math
 from fpdf import FPDF
 from pymongo import MongoClient
-from pymongo.errors import PyMongoError
 from urllib.parse import quote_plus
 from streamlit_extras.tags import tagger_component
 from bson import ObjectId
@@ -23,44 +22,18 @@ client = init_connection()
 db = client.mazette
 
 def init_session():
-    try:
-        if 'products' not in st.session_state:
-            products = list(db.products.find())
-            if not products:
-                st.warning("No products found in the database.")
-                st.session_state.products = {}
-            else:
-                st.session_state.products = {
-                    item['name']: {
-                        **item, 
-                        '_id': str(item['_id']), 
-                        'tasks': item.get('tasks', [])
-                    } for item in products
-                }
-            st.success(f"Loaded {len(st.session_state.products)} products.")
-
-        days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
-        for day in days:
-            checklist_key = f'{day}_checklist'
-            if checklist_key not in st.session_state:
-                checklist_data = db.checklists.find_one({'session_key': day})
-                st.session_state[checklist_key] = pd.DataFrame(
-                    checklist_data['items'] if checklist_data else [], 
-                    columns=['Produit', 'Quantité']
-                )
-
-            todos_key = f'{day}_general_todos'
-            if todos_key not in st.session_state:
-                todos_data = list(db.general_todos.find({'session_key': day}))
-                st.session_state[todos_key] = todos_data if todos_data else []
-
-        st.success("Session initialized successfully.")
-    except PyMongoError as e:
-        st.error(f"MongoDB Error: {str(e)}")
-        st.error("Failed to initialize session due to database error.")
-    except Exception as e:
-        st.error(f"Unexpected error: {str(e)}")
-        st.error("Failed to initialize session due to an unexpected error.")
+    if 'products' not in st.session_state:
+        st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
+    
+    days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
+    for day in days:
+        if f'{day}_checklist' not in st.session_state:
+            checklist_data = db.checklists.find_one({'session_key': day})
+            st.session_state[f'{day}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
+        
+        if f'{day}_general_todos' not in st.session_state:
+            todos_data = list(db.general_todos.find({'session_key': day}))
+            st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
 
 def save_current_session():
     # Save checklist
@@ -413,85 +386,54 @@ def duplicate_product():
         st.experimental_rerun()
 
 def main():
-    try:
-        # Initialize session state
-        if 'session_key' not in st.session_state:
-            st.session_state.session_key = "LUNDI"
+    if 'session_key' not in st.session_state:
+        st.session_state.session_key = "LUNDI"
 
-        # Sidebar
-        with st.sidebar:
-            session_key = st.selectbox("Sélectionnez le jour:", 
-                                       ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], 
-                                       key="day_selector")
+    with st.sidebar:
+        session_key = st.selectbox("Sélectionnez le jour:", ["LUNDI", "MARDI", "JEUDI", "VENDREDI"], key="day_selector")
 
-        # Update session key if changed
-        if session_key != st.session_state.session_key:
-            st.session_state.session_key = session_key
+    if session_key != st.session_state.session_key:
+        st.session_state.session_key = session_key
 
-        # Set theme and initialize session
-        set_theme(st.session_state.session_key)
-        init_session()
+    set_theme(st.session_state.session_key)
+    init_session()  # Call init_session() here
 
-        # Main title
-        st.title(f"{st.session_state.session_key}")
+    st.title(f"{st.session_state.session_key}")
 
-        # Main content area
-        tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
+    with st.sidebar:
+        st.header("Gestion")
+        menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
 
-        if tabs == "Checklist":
-            render_checklist()
-        elif tabs == "Commandes":
-            render_commandes()
-        elif tabs == "Gestion des Produits":
-            manage_products()
-        elif tabs == "Tâches Générales":
-            manage_general_todos()
+        if menu_choice == "Commandes":
+            st.subheader("Ajouter aux commandes")
+            new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
+            new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
+            if st.button("Ajouter aux commandes"):
+                new_row = pd.DataFrame({'Produit': [new_product], 'Quantité': [new_quantity]})
+                st.session_state[f'{st.session_state.session_key}_checklist'] = pd.concat(
+                    [st.session_state[f'{st.session_state.session_key}_checklist'], new_row], 
+                    ignore_index=True
+                )
+                save_current_session()
+                st.rerun()
 
-        # Sidebar management section
-        with st.sidebar:
-            st.header("Gestion")
-            menu_choice = st.radio("", ["Commandes", "Gestion des Tâches Générales", "Gestion des Produits", "Dupliquer le Produit"])
-
-            if menu_choice == "Commandes":
-                sidebar_commandes()
-            elif menu_choice == "Gestion des Tâches Générales":
-                manage_general_todos()
-            elif menu_choice == "Gestion des Produits":
-                manage_products()
-            elif menu_choice == "Dupliquer le Produit":
-                duplicate_product()
-
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
-        st.exception(e)
-
-def render_commandes():
-    st.subheader("Ajouter aux commandes")
-    with st.form(key='add_commande'):
-        new_product = st.selectbox("Sélectionnez un produit:", list(st.session_state.products.keys()))
-        new_quantity = st.number_input("Entrez la quantité:", min_value=1, value=1, step=1)
-        submit_button = st.form_submit_button(label='Ajouter aux commandes')
-        
-    if submit_button:
-        add_to_commandes(new_product, new_quantity)
-
-        st.subheader("Commandes")
-        edited_df = st.data_editor(
+            st.subheader("Commandes")
+            edited_df = st.data_editor(
                 st.session_state[f'{st.session_state.session_key}_checklist'], 
                 num_rows="dynamic", 
                 use_container_width=True
             )
-        st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
-        save_current_session()
+            st.session_state[f'{st.session_state.session_key}_checklist'] = edited_df
+            save_current_session()
 
         elif menu_choice == "Gestion des Tâches Générales":
-        manage_general_todos()
+            manage_general_todos()
 
         elif menu_choice == "Gestion des Produits":
-        manage_products()
+            manage_products()
 
         elif menu_choice == "Dupliquer le Produit":
-        duplicate_product()
+            duplicate_product()
 
     tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
 
