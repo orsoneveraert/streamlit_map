@@ -78,7 +78,7 @@ def save_current_session():
             db.general_todos.insert_many([{**todo, 'session_key': st.session_state.session_key} for todo in st.session_state[f'{st.session_state.session_key}_general_todos']])
 	    
 	except errors.PyMongoError as e:
-        	st.error(f"Failed to save the session: {e}")
+            st.error(f"Failed to save the session: {e}")
 	
     # Ensure the key exists
     if f'{st.session_state.session_key}_general_todos' not in st.session_state:
