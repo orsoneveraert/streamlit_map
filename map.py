@@ -4,7 +4,6 @@ import math
 from fpdf import FPDF
 from pymongo import MongoClient
 from urllib.parse import quote_plus
-from streamlit_extras.tags import tagger_component
 from bson import ObjectId
 st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 # MongoDB connection
@@ -97,52 +96,7 @@ def manage_general_todos():
                 st.rerun()
     
     save_current_session()
-def generate_pdf_checklist():
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, f"Checklist - {st.session_state.session_key}", 0, 1, 'C')
-    pdf.ln(10)
-    
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "Tâches Générales", 0, 1)
-    pdf.ln(5)
-    
-    pdf.set_font("Arial", size=12)
-    for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
-        if todo['active']:
-            pdf.cell(0, 10, f"[ ] {todo['task']}", 0, 1)
-    pdf.ln(10)
-    
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "Tâches Spécifiques aux Produits", 0, 1)
-    pdf.ln(5)
-    
-    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
-        product, quantity = row['Produit'], row['Quantité']
-        if product in st.session_state.products:
-            items_needed = calculate_needed_items(product, quantity)
-            rounded_quantity = math.ceil(quantity)
-            
-            pdf.set_font("Arial", 'B', 12)
-            pdf.cell(0, 10, f"{product} ({rounded_quantity})", 0, 1)
-            
-            pdf.set_font("Arial", size=12)
-            for item in items_needed:
-                pdf.cell(0, 10, f"[ ] {item['count']} {item['name']}", 0, 1)
-                for subtask in item['subtasks']:
-                    pdf.cell(10)
-                    pdf.cell(0, 10, f"[ ] {subtask['name']}", 0, 1)
-            pdf.ln(5)
-    
-    pdf.output("checklist.pdf")
-def render_checklist():
-    st.header("📋 Checklist - Mise en place")
-    
-    total_tasks = 0
-    completed_tasks = 0
+
     # General todos
     st.subheader("Tâches Générales")
     for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
@@ -199,13 +153,6 @@ def render_checklist():
     progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
     st.progress(progress_percentage / 100)
     st.write(f"{completed_tasks} tâches terminées sur {total_tasks} ({progress_percentage:.1f}%)")
-    # PDF generation
-    if st.button("Générer PDF"):
-        generate_pdf_checklist()
-        st.success("Checklist PDF générée !")
-    
-    with open("checklist.pdf", "rb") as f:
-        st.download_button("Télécharger la checklist PDF", f, "checklist.pdf")
     # Save the current state
     save_current_session()
 def add_task_to_product(product_name, task_name):
