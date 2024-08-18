@@ -485,13 +485,13 @@ def render_commandes():
         save_current_session()
 
         elif menu_choice == "Gestion des Tâches Générales":
-            manage_general_todos()
+        manage_general_todos()
 
         elif menu_choice == "Gestion des Produits":
-            manage_products()
+        manage_products()
 
         elif menu_choice == "Dupliquer le Produit":
-            duplicate_product()
+        duplicate_product()
 
     tabs = st.sidebar.radio("Navigation", ["Checklist", "Commandes", "Gestion des Produits", "Tâches Générales"])
 
