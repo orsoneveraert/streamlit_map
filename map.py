@@ -475,7 +475,7 @@ def render_commandes():
     if submit_button:
         add_to_commandes(new_product, new_quantity)
 
-            st.subheader("Commandes")
+        st.subheader("Commandes")
             edited_df = st.data_editor(
                 st.session_state[f'{st.session_state.session_key}_checklist'], 
                 num_rows="dynamic", 
