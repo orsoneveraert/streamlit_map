@@ -1,11 +1,4 @@
-import streamlit as st
-import pandas as pd
-import math
-from fpdf import FPDF
-from pymongo import MongoClient
-from urllib.parse import quote_plus
-from streamlit_extras.tags import tagger_component
-from bson import ObjectId
+
 
 st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 
