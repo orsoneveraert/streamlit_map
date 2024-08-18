@@ -148,6 +148,63 @@ def manage_general_todos():
                                 completed_tasks += 1
             
             st.markdown("---")
+
+    def render_checklist():
+    st.header("📋 Checklist - Mise en place")
+    
+    total_tasks = 0
+    completed_tasks = 0
+    # General todos
+    st.subheader("Tâches Générales")
+    for todo in st.session_state[f'{st.session_state.session_key}_general_todos']:
+        if todo['active']:
+            todo_key = f"general_todo_{todo['task']}"
+            todo['done'] = st.checkbox(todo['task'], value=todo.get('done', False), key=todo_key)
+            total_tasks += 1
+            if todo['done']:
+                completed_tasks += 1
+    # Product-specific tasks
+    for _, row in st.session_state[f'{st.session_state.session_key}_checklist'].iterrows():
+        product, quantity = row['Produit'], row['Quantité']
+        if product in st.session_state.products:
+            st.subheader(f"{product} ({quantity})")
+            
+            # Items and their subtasks
+            items_needed = calculate_needed_items(product, quantity)
+            for item in items_needed:
+                item_key = f"item_{product}_{item['name']}"
+                item['done'] = st.checkbox(f"{item['count']} {item['name']}", value=item.get('done', False), key=item_key)
+                total_tasks += 1
+                if item['done']:
+                    completed_tasks += 1
+                
+                for i, subtask in enumerate(item['subtasks']):
+                    subtask_key = f"{item_key}_subtask_{i}"
+                    subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                    total_tasks += 1
+                    if subtask['done']:
+                        completed_tasks += 1
+
+            # Product-specific tasks
+            if 'tasks' in st.session_state.products[product]:
+                st.subheader(f"Tâches spécifiques pour {product}")
+                for task in st.session_state.products[product]['tasks']:
+                    task_key = f"task_{product}_{task['name']}"
+                    task['done'] = st.checkbox(task['name'], value=task.get('done', False), key=task_key)
+                    total_tasks += 1
+                    if task['done']:
+                        completed_tasks += 1
+                    
+                    # Render subtasks for each task
+                    if 'subtasks' in task:
+                        for i, subtask in enumerate(task['subtasks']):
+                            subtask_key = f"{task_key}_subtask_{i}"
+                            subtask['done'] = st.checkbox(f"  - {subtask['name']}", value=subtask.get('done', False), key=subtask_key)
+                            total_tasks += 1
+                            if subtask['done']:
+                                completed_tasks += 1
+            
+            st.markdown("---")
     # Progress bar
     st.subheader("Progression")
     progress_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
