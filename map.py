@@ -3,6 +3,7 @@ import pandas as pd
 import math
 from fpdf import FPDF
 from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 from urllib.parse import quote_plus
 from streamlit_extras.tags import tagger_component
 from bson import ObjectId
@@ -22,18 +23,44 @@ client = init_connection()
 db = client.mazette
 
 def init_session():
-    if 'products' not in st.session_state:
-        st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
-    
-    days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
-    for day in days:
-        if f'{day}_checklist' not in st.session_state:
-            checklist_data = db.checklists.find_one({'session_key': day})
-            st.session_state[f'{day}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
-        
-        if f'{day}_general_todos' not in st.session_state:
-            todos_data = list(db.general_todos.find({'session_key': day}))
-            st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
+    try:
+        if 'products' not in st.session_state:
+            products = list(db.products.find())
+            if not products:
+                st.warning("No products found in the database.")
+                st.session_state.products = {}
+            else:
+                st.session_state.products = {
+                    item['name']: {
+                        **item, 
+                        '_id': str(item['_id']), 
+                        'tasks': item.get('tasks', [])
+                    } for item in products
+                }
+            st.success(f"Loaded {len(st.session_state.products)} products.")
+
+        days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
+        for day in days:
+            checklist_key = f'{day}_checklist'
+            if checklist_key not in st.session_state:
+                checklist_data = db.checklists.find_one({'session_key': day})
+                st.session_state[checklist_key] = pd.DataFrame(
+                    checklist_data['items'] if checklist_data else [], 
+                    columns=['Produit', 'Quantité']
+                )
+
+            todos_key = f'{day}_general_todos'
+            if todos_key not in st.session_state:
+                todos_data = list(db.general_todos.find({'session_key': day}))
+                st.session_state[todos_key] = todos_data if todos_data else []
+
+        st.success("Session initialized successfully.")
+    except PyMongoError as e:
+        st.error(f"MongoDB Error: {str(e)}")
+        st.error("Failed to initialize session due to database error.")
+    except Exception as e:
+        st.error(f"Unexpected error: {str(e)}")
+        st.error("Failed to initialize session due to an unexpected error.")
 
 def save_current_session():
     # Save checklist
