@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import math
 from fpdf import FPDF
-from pymongo import MongoClient, errors
+from pymongo import MongoClient
 from urllib.parse import quote_plus
 from streamlit_extras.tags import tagger_component
 from bson import ObjectId
@@ -12,74 +12,75 @@ st.set_page_config(layout="wide", page_title="Suivi de Mise en Place")
 # MongoDB connection
 @st.cache_resource
 def init_connection():
-    try:
-        username = quote_plus(st.secrets["mongo"]["username"])
-        password = quote_plus(st.secrets["mongo"]["password"])
-        cluster = "mazette.dgv4a.mongodb.net"
-        connection_string = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority"
-        client = MongoClient(connection_string)
-        return client
-    except errors.ConnectionError as e:
-        st.error(f"Failed to connect to the database: {e}")
-        return None
+    username = quote_plus(st.secrets["mongo"]["username"])
+    password = quote_plus(st.secrets["mongo"]["password"])
+    cluster = "mazette.dgv4a.mongodb.net"
+    connection_string = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority"
+    return MongoClient(connection_string)
 
 client = init_connection()
-db = client.mazette if client else None
-def init_session():
-    if not db:
-        st.error("Database connection is not available. The session could not be initialized.")
-        return
+db = client.mazette
 
-    try:
-        if 'products' not in st.session_state:
-            st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
+def init_session():
+    if 'products' not in st.session_state:
+        st.session_state.products = {item['name']: {**item, '_id': str(item['_id']), 'tasks': item.get('tasks', [])} for item in db.products.find()}
+    
+    days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
+    for day in days:
+        if f'{day}_checklist' not in st.session_state:
+            checklist_data = db.checklists.find_one({'session_key': day})
+            st.session_state[f'{day}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
         
-        days = ["LUNDI", "MARDI", "JEUDI", "VENDREDI"]
-        for day in days:
-            if f'{day}_checklist' not in st.session_state:
-                checklist_data = db.checklists.find_one({'session_key': day})
-                st.session_state[f'{day}_checklist'] = pd.DataFrame(checklist_data['items'] if checklist_data else [], columns=['Produit', 'Quantité'])
-            
-            if f'{day}_general_todos' not in st.session_state:
-                todos_data = list(db.general_todos.find({'session_key': day}))
-                st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
-    except errors.PyMongoError as e:
-        st.error(f"Failed to initialize session: {e}")
+        if f'{day}_general_todos' not in st.session_state:
+            todos_data = list(db.general_todos.find({'session_key': day}))
+            st.session_state[f'{day}_general_todos'] = todos_data if todos_data else []
 
 def save_current_session():
-    if not db:
-        st.error("Database connection is not available. The session could not be saved.")
-        return
-
-    try:
-        # Save checklist
-        db.checklists.update_one(
-            {'session_key': st.session_state.session_key},
-            {'$set': {'items': st.session_state[f'{st.session_state.session_key}_checklist'].to_dict(orient='records')}},
-            upsert=True
-        )
-
-        # Save products
-        for product_name, product_data in st.session_state.products.items():
-            product_data_without_id = {k: v for k, v in product_data.items() if k != '_id'}
-            
-            existing_product = db.products.find_one({'name': product_name})
-            if existing_product:
-                db.products.update_one(
-                    {'_id': existing_product['_id']},
-                    {'$set': product_data_without_id}
-                )
-            else:
-                db.products.insert_one(product_data_without_id)
+    # Save checklist
+    db.checklists.update_one(
+        {'session_key': st.session_state.session_key},
+        {'$set': {'items': st.session_state[f'{st.session_state.session_key}_checklist'].to_dict(orient='records')}},
+        upsert=True
+    )
+    
+    # Save products
+    for product_name, product_data in st.session_state.products.items():
+        product_data_without_id = {k: v for k, v in product_data.items() if k != '_id'}
         
-        # Save general todos
-    try:
-        db.general_todos.delete_many({'session_key': st.session_state.session_key})
-        if st.session_state[f'{st.session_state.session_key}_general_todos']:
-            db.general_todos.insert_many([{**todo, 'session_key': st.session_state.session_key} for todo in st.session_state[f'{st.session_state.session_key}_general_todos']])
-    except errors.PyMongoError as e:
-        st.error(f"Failed to save the session: {e}")
-	
+        existing_product = db.products.find_one({'name': product_name})
+        if existing_product:
+            db.products.update_one(
+                {'_id': existing_product['_id']},
+                {'$set': product_data_without_id}
+            )
+        else:
+            db.products.insert_one(product_data_without_id)
+    
+    # Save general todos
+    db.general_todos.delete_many({'session_key': st.session_state.session_key})
+    if st.session_state[f'{st.session_state.session_key}_general_todos']:
+        db.general_todos.insert_many([{**todo, 'session_key': st.session_state.session_key} for todo in st.session_state[f'{st.session_state.session_key}_general_todos']])
+
+def set_theme(day):
+    themes = {
+        "LUNDI": "#f2dcdb", "MARDI": "#ebf1dd", "JEUDI": "#e5e0ec", "VENDREDI": "#dbeef3"
+    }
+    color = themes.get(day, "#FFFFFF")
+    st.markdown(f"<style>.stApp {{background-color: {color};}}</style>", unsafe_allow_html=True)
+
+def calculate_needed_items(product, quantity):
+    items = st.session_state.products[product]["items"]
+    return [{
+        "name": item['name'],
+        "count": math.ceil(quantity / item["capacity"]),
+        "subtasks": item["subtasks"],
+        "done": item.get("done", False),
+        "tags": item.get("tags", [])
+    } for item in items]
+
+def manage_general_todos():
+    st.subheader("Gestion des Tâches Générales")
+    
     # Ensure the key exists
     if f'{st.session_state.session_key}_general_todos' not in st.session_state:
         st.session_state[f'{st.session_state.session_key}_general_todos'] = []
